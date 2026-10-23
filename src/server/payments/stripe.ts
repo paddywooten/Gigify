@@ -52,7 +52,7 @@ export class StripePaymentProvider implements PaymentProvider {
 
   constructor(cfg: StripeConfig) {
     this.secretKey = cfg.secretKey;
-    this.defaultCurrency = (cfg.currency ?? "usd").toLowerCase();
+    this.defaultCurrency = (cfg.currency ?? "ghs").toLowerCase();
     this.fetchFn = cfg.fetchFn;
   }
 

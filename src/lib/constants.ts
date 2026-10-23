@@ -1,5 +1,8 @@
 // Shared domain constants + label maps used by both the API and the UI.
 
+/** Platform currency — all amounts are integer minor units (pesewas) of this currency. */
+export const CURRENCY = "GHS";
+
 export const ROLES = ["MUSICIAN", "CLIENT", "ADMIN"] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -128,3 +131,5 @@ export const ROLE_LABELS: Record<Role, string> = {
 /** Default platform commission, used until an admin overrides it in settings. */
 export const DEFAULT_COMMISSION_RATE = 0.15;
 export const COMMISSION_RATE_KEY = "commissionRate";
+/** Key/value store key for the site-wide announcement banner ("" = hidden). */
+export const ANNOUNCEMENT_KEY = "announcement";

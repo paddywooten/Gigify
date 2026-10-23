@@ -12,9 +12,9 @@
   /* ---------------------------------------------------------------- utils */
 
   const money = (cents) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat("en-GH", {
       style: "currency",
-      currency: "USD",
+      currency: "GHS",
       maximumFractionDigits: 0,
     }).format(cents / 100);
 
@@ -111,6 +111,11 @@
       localStorage.removeItem(USER_KEY);
       syncAuth();
       toast("You've been signed out.");
+    }
+    if (event.target.closest("[data-google-signin]")) {
+      toast(
+        "Google sign-in runs in the full application (src/) — this static demo keeps accounts in your browser."
+      );
     }
   });
 

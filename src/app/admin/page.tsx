@@ -4,11 +4,33 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api-client";
 import Protected from "@/components/Protected";
-import { BOOKING_STATUS_LABELS, ROLE_LABELS } from "@/lib/constants";
-import type { AdminStatsDTO, AdminUserDTO, BookingDTO, Paginated, PlatformSettingsDTO } from "@/lib/types";
+import {
+  BOOKING_STATUS_LABELS,
+  GIG_STATUSES,
+  GIG_STATUS_LABELS,
+  GIG_TYPE_LABELS,
+  ROLE_LABELS,
+} from "@/lib/constants";
+import type {
+  AdminGigDTO,
+  AdminStatsDTO,
+  AdminUserDTO,
+  BookingDTO,
+  Paginated,
+  PlatformSettingsDTO,
+} from "@/lib/types";
 import { formatDate, formatMoney, formatRate } from "@/lib/format";
 import { LoadingBlock } from "@/components/Spinner";
-import { ErrorBanner, Field, PageHeader, StatusBadge, SuccessBanner, TextInput } from "@/components/ui";
+import {
+  ErrorBanner,
+  Field,
+  PageHeader,
+  Select,
+  StatusBadge,
+  SuccessBanner,
+  TextArea,
+  TextInput,
+} from "@/components/ui";
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -83,6 +105,214 @@ function CommissionSettings() {
       <SuccessBanner message={saved ? `Commission updated to ${formatRate(settings.commissionRate)}.` : null} />
       <ErrorBanner message={error} />
     </form>
+  );
+}
+
+/** Site-wide announcement banner editor + platform currency readout. */
+function PageSettings() {
+  const [settings, setSettings] = useState<PlatformSettingsDTO | null>(null);
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api<PlatformSettingsDTO>("/admin/settings")
+      .then((s) => {
+        setSettings(s);
+        setText(s.announcement ?? "");
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const updated = await api<PlatformSettingsDTO>("/admin/settings", {
+        method: "PATCH",
+        body: { commissionRate: settings!.commissionRate, announcement: text },
+      });
+      setSettings(updated);
+      setText(updated.announcement);
+      setSaved(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!settings) return <LoadingBlock label="Loading page settings…" />;
+
+  return (
+    <form onSubmit={save} className="card p-6">
+      <h2 className="font-semibold text-slate-900">Page announcement</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Shown as a banner above the navigation on every page. Leave empty to hide it.
+      </p>
+      <div className="mt-4">
+        <Field label="Banner message" hint={`${text.length}/300 characters`}>
+          <TextArea
+            rows={2}
+            maxLength={300}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="e.g. Scheduled maintenance on Sunday 2–4 AM — payouts may be delayed."
+          />
+        </Field>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">
+          Platform currency:{" "}
+          <span className="font-semibold text-slate-700">{settings.currency}</span> — all prices,
+          fees and payouts are in Ghana Cedis.
+        </p>
+        <button type="submit" disabled={busy} className="btn-primary">
+          {busy ? "Saving…" : "Save banner"}
+        </button>
+      </div>
+      <SuccessBanner message={saved ? "Announcement published to the site." : null} />
+      <ErrorBanner message={error} />
+    </form>
+  );
+}
+
+/** Admin gig list with one-click takedown (moderation). */
+function GigsModeration() {
+  const [gigs, setGigs] = useState<Paginated<AdminGigDTO> | null>(null);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async (s: string) => {
+    setError(null);
+    try {
+      setGigs(
+        await api<Paginated<AdminGigDTO>>(`/admin/gigs?limit=50${s ? `&status=${s}` : ""}`),
+      );
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }, []);
+
+  useEffect(() => {
+    void load(status);
+  }, [load, status]);
+
+  async function takeDown(id: string) {
+    if (!window.confirm("Take this gig down? Its pending applications will be rejected.")) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      await api(`/admin/gigs/${id}/cancel`, { method: "POST" });
+      await load(status);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-slate-900">Gig moderation</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Every gig on the platform — take down anything that breaks the rules.
+          </p>
+        </div>
+        <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-44">
+          <option value="">All statuses</option>
+          {GIG_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {GIG_STATUS_LABELS[s]}
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <ErrorBanner message={error} />
+
+      {!gigs ? (
+        <LoadingBlock label="Loading gigs…" />
+      ) : gigs.items.length === 0 ? (
+        <p className="mt-6 text-center text-sm text-slate-500">No gigs match this filter.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
+                <th className="py-2 pr-3">Gig</th>
+                <th className="py-2 pr-3">Organizer</th>
+                <th className="py-2 pr-3">Date</th>
+                <th className="py-2 pr-3">Budget</th>
+                <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3">Activity</th>
+                <th className="py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {gigs.items.map((g) => (
+                <tr key={g.id} className="border-b border-slate-100 last:border-0">
+                  <td className="max-w-[16rem] py-2.5 pr-3">
+                    <Link
+                      href={`/gigs/${g.id}`}
+                      className="block truncate font-medium text-slate-900 hover:text-brand-600"
+                    >
+                      {g.title}
+                    </Link>
+                    <span className="text-xs text-slate-500">
+                      {GIG_TYPE_LABELS[g.gigType as keyof typeof GIG_TYPE_LABELS] ?? g.gigType} ·{" "}
+                      {g.location}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-3 text-slate-600">{g.organizer.name}</td>
+                  <td className="whitespace-nowrap py-2.5 pr-3 text-slate-600">
+                    {formatDate(g.eventDate)}
+                  </td>
+                  <td className="whitespace-nowrap py-2.5 pr-3 font-medium text-slate-900">
+                    {formatMoney(g.budgetCents)}
+                  </td>
+                  <td className="py-2.5 pr-3">
+                    <StatusBadge
+                      status={g.status}
+                      label={GIG_STATUS_LABELS[g.status as keyof typeof GIG_STATUS_LABELS] ?? g.status}
+                    />
+                  </td>
+                  <td className="whitespace-nowrap py-2.5 pr-3 text-slate-600">
+                    {g.pendingApplications} pending
+                    {g.bookingStatus
+                      ? ` · booking ${BOOKING_STATUS_LABELS[g.bookingStatus as keyof typeof BOOKING_STATUS_LABELS] ?? g.bookingStatus}`
+                      : ""}
+                  </td>
+                  <td className="py-2.5 text-right">
+                    {g.status === "OPEN" && (
+                      <button
+                        onClick={() => takeDown(g.id)}
+                        disabled={busyId === g.id}
+                        className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                      >
+                        {busyId === g.id ? "Taking down…" : "Take down"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {gigs && gigs.total > gigs.items.length && (
+        <p className="mt-3 text-xs text-slate-400">
+          Showing {gigs.items.length} of {gigs.total} gigs.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -299,6 +529,10 @@ export default function AdminPage() {
             <CommissionSettings />
             <Disputes />
           </div>
+
+          <PageSettings />
+
+          <GigsModeration />
 
           <UsersTable />
 

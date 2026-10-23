@@ -55,7 +55,7 @@ export class PaystackPaymentProvider implements PaymentProvider {
   constructor(cfg: PaystackConfig) {
     this.secretKey = cfg.secretKey;
     this.publicKey = cfg.publicKey;
-    this.defaultCurrency = (cfg.currency ?? "NGN").toLowerCase();
+    this.defaultCurrency = (cfg.currency ?? "GHS").toLowerCase();
     this.baseUrl = (cfg.baseUrl ?? PAYSTACK_API).replace(/\/$/, "");
     this.fetchFn = cfg.fetchFn;
   }

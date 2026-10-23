@@ -77,7 +77,7 @@ All seeded accounts use the password `password123`:
 | `james@gigify.test` | Musician | Jazz guitarist — $1,275 payout example |
 | `sofia@gigify.test`, `daniel@gigify.test` | Musician | Extra directory profiles |
 
-**Suggested tour:** sign in as `church@gigify.test` → Dashboard → open the youth-night booking → **Fund escrow**. Then sign in as `musician@gigify.test` → start the gig, sign back in as the church → **Confirm completion & pay**, and leave reviews on both sides. Check `admin@gigify.test` → Admin to see platform revenue and the commission setting.
+**Suggested tour:** sign in as `church@gigify.test` → Dashboard → open the youth-night booking → **Fund escrow**. Then sign in as `musician@gigify.test` → start the gig, sign back in as the church → **Confirm completion & pay**, and leave reviews on both sides. Check `admin@gigify.test` → Admin to see platform revenue, the commission setting, the site announcement banner and gig moderation.
 
 ---
 
@@ -97,6 +97,11 @@ All seeded accounts use the password `password123`:
 **Accounts & roles**
 - Three roles: `MUSICIAN`, `CLIENT` (church/venue/event), `ADMIN`
 - Registration with role-specific profiles (instruments/genres/rate vs. organization)
+- **Sign in with Google** — OAuth 2.0 authorization-code flow (state/CSRF cookie, server-side code
+  exchange, verified email required). New accounts get the register page's role hint (default
+  `CLIENT` — admins can never be created via OAuth); an existing password account with the same
+  email is linked instead of duplicated, and **both** sign-in methods keep working afterwards
+  (Google-only accounts have `passwordHash = null` and are told to use the Google button)
 - Cookie sessions (HttpOnly; only the SHA-256 of the token is stored server-side)
 - Profile settings for both roles
 
@@ -133,13 +138,18 @@ FUNDED / IN_PROGRESS → DISPUTED → admin resolves → COMPLETED (paid) or REF
 **Trust & moderation**
 - Mutual post-gig reviews (one per party per booking, only after completion)
 - In-app notifications for every meaningful event (applications, funding, completion, disputes…) — each one also sends a branded **transactional email** (JSONL outbox locally, Resend when `EMAIL_PROVIDER=resend`)
-- Admin console: revenue stats, booking breakdown, dispute resolution, user suspension/role changes (suspending kills live sessions)
+- Admin console (`/admin`): revenue stats, booking breakdown, dispute resolution, user suspension/role changes (suspending kills live sessions)
+- **Page management**: site-wide announcement banner (published from the admin console, shown above the nav everywhere, dismissible per browser) and a read-only platform currency (GHS) readout
+- **Gig moderation**: admins see every gig on the platform (status filter, organizer, pending activity) and can take an OPEN gig down — pending applications are rejected and the organizer is notified; booked/completed gigs must be resolved through the booking flow first
 
 ---
 
 ## How the money works
 
-All amounts are **integer cents** — no floating point money.
+All amounts are **integer minor units** — no floating point money. The platform currency is
+**Ghana Cedis (GHS)**: every price, budget, day rate, escrow charge, commission and payout is
+denominated and displayed in GH₵ (`formatMoney` formats with the `en-GH` locale, and the payment
+providers default to `ghs`; override with `PLATFORM_CURRENCY` if you ever need to).
 
 ```ts
 // src/server/domain/commission.ts (pure, unit-tested)
@@ -151,9 +161,9 @@ Example at the default **15%**:
 
 | | Amount |
 | --- | --- |
-| Client funds escrow | $1,000.00 |
-| Platform commission (15%) | − $150.00 |
-| Musician payout | $850.00 |
+| Client funds escrow | GH₵1,000.00 |
+| Platform commission (15%) | − GH₵150.00 |
+| Musician payout | GH₵850.00 |
 
 The rate stored on a booking (`platformFeeRate`) is the source of truth for that booking's split; changing the global setting only affects **future** bookings.
 
@@ -215,6 +225,8 @@ Base path: `/api/v1`. All mutating endpoints require a session cookie unless not
 | Method & path | Access | Purpose |
 | --- | --- | --- |
 | `POST /auth/register` · `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` | public / session | Auth |
+| `GET /auth/google` · `GET /auth/google/callback` | public | Start Google sign-in (sets a state cookie, redirects to Google) and complete it (code exchange → account link/create → session) |
+| `GET /settings` | public | Page settings: announcement banner, commission rate, platform currency (GHS) |
 | `GET /gigs` · `GET /gigs/:id` | public | Browse gig marketplace (filters: `search`, `gigType`, `genre`, `minBudgetCents`, `maxBudgetCents`, `dateFrom`, `dateTo`, `mine`, `page`, `limit`) |
 | `POST /gigs` · `PATCH /gigs/:id` | client/admin | Create & manage gigs (incl. cancel) |
 | `GET /gigs/:id/applications` | organizer/admin | Review applications |
@@ -234,7 +246,8 @@ Base path: `/api/v1`. All mutating endpoints require a session cookie unless not
 | `DELETE /profile/media/:id` | musician | Remove own portfolio media |
 | `GET /media/:id` | public | Serve portfolio media (audio/photo) by opaque id |
 | `GET /notifications` · `PATCH /notifications` | session | In-app notifications |
-| `GET /admin/stats` · `GET/PATCH /admin/settings` | admin | Platform metrics & commission |
+| `GET /admin/stats` · `GET/PATCH /admin/settings` | admin | Platform metrics, commission + announcement banner |
+| `GET /admin/gigs` · `POST /admin/gigs/:id/cancel` | admin | Gig moderation: list every gig (status filter), take an OPEN gig down |
 | `GET /admin/users` · `PATCH /admin/users/:id` | admin | Moderation (suspend/activate, roles) |
 | `POST /admin/bookings/:id/resolve` | admin | Resolve disputes (`MUSICIAN_PAYOUT` / `CLIENT_REFUND`) |
 
@@ -250,6 +263,9 @@ npm test
 - `tests/payments.test.ts` — Stripe/Paystack provider behavior with fully mocked HTTP, webhook signature verification + idempotent settlement, and the two-step funding contract
 - `tests/email.test.ts` — template escaping, notification → outbox dispatch, Resend payload shape, failure isolation
 - `tests/contracts.test.ts` — contract generation at funding (snapshot, hash, idempotency), the two-party signing flow with audit trail, and permission/validation guards
+- `tests/media.test.ts` — portfolio media upload validation, opaque-id serving, listing and deletion guards
+- `tests/google-auth.test.ts` — Google OAuth entry redirect (config/role/next/state cookie), callback state (CSRF) validation, new-account creation (CLIENT/MUSICIAN), idempotency, email linking with password fallback, unverified/suspended/expired-exchange failures
+- `tests/admin-console.test.ts` — public page settings (announcement + GHS currency), admin-only guards, and gig takedown rules (OPEN only, pending applications rejected, organizer notified, 409s for booked/completed/repeats)
 
 Tests call the **real route handlers** with `NextRequest`s against a dedicated SQLite test database (`prisma/test.db`, reset per run) — no network, no mocks of our own code. The payment provider is the `mock` implementation unless a test injects one.
 
@@ -260,7 +276,8 @@ Tests call the **real route handlers** with `NextRequest`s against a dedicated S
 3. **Payments** — `StripePaymentProvider` and `PaystackPaymentProvider` are implemented (test mode). To go live: add the secret keys + webhook secrets, complete Stripe Connect / Paystack recipient onboarding per musician (fields exist on `User`), and switch `PAYMENT_PROVIDER`.
 4. **Sessions** — set `NODE_ENV=production` so cookies are `Secure`.
 5. **Email** — implemented: set `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` (pluggable `EmailSender` in `src/server/email/sender.ts`; swap in SMTP/Postmark by adding another sender).
-6. **Hardening** — add rate limiting on `/auth/*` and `/bookings/:id/fund`, background job to expire unpaid bookings, and legal pages (terms, payout/KYC for musicians above marketplace thresholds).
+6. **Google sign-in** — create an OAuth client at https://console.cloud.google.com/apis/credentials (Web application), add `<APP_URL>/api/v1/auth/google/callback` as an authorized redirect URI, then set `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` (and `GOOGLE_REDIRECT_URI` if the public origin differs from the request origin). Without them the button stays visible and explains itself in-app (`/login?error=google_unconfigured`).
+7. **Hardening** — add rate limiting on `/auth/*` and `/bookings/:id/fund`, background job to expire unpaid bookings, and legal pages (terms, payout/KYC for musicians above marketplace thresholds).
 
 ### Hosting on Firebase App Hosting
 
@@ -286,9 +303,12 @@ Configuration lives in `apphosting.yaml`. On boot, `src/server/db.ts` runs the P
 - [ ] Availability calendars + instant booking for pre-agreed rates
 - [ ] Saved/favorite musicians & recurring gigs for churches
 - [x] Transactional email for every event (console outbox in dev; Resend-ready)
+- [x] Ghana Cedis everywhere: GH₵ formatting (`en-GH`), `ghs` provider defaults, GHS labels across app + site
+- [x] Sign in with Google (OAuth code flow, account linking, role hints, CSRF state)
+- [x] Admin console: page announcement banner + gig moderation (takedown, pending-application rejection, organizer notify)
 - [ ] Weekly digest emails for musicians
 - [ ] Payout accounts & tax forms (1099 generation) for musicians
-- [ ] Multi-currency support
+- [ ] Multi-currency support (GHS is the single currency today; add others behind `CURRENCY`)
 - [ ] Dispute evidence upload (photos, messages, set lists)
 - [ ] Analytics for organizers (application conversion, no-show rates)
 

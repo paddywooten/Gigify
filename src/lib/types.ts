@@ -204,6 +204,24 @@ export interface AdminStatsDTO {
 
 export interface PlatformSettingsDTO {
   commissionRate: number;
+  /** Site-wide announcement banner text ("" when hidden). */
+  announcement: string;
+  /** Platform currency code — always "GHS" (Ghana Cedis). */
+  currency: string;
+}
+
+export interface AdminGigDTO {
+  id: string;
+  title: string;
+  gigType: string;
+  status: string;
+  eventDate: string;
+  location: string;
+  budgetCents: number;
+  createdAt: string;
+  organizer: { id: string; name: string; email: string };
+  pendingApplications: number;
+  bookingStatus: string | null;
 }
 
 export interface AdminUserDTO {

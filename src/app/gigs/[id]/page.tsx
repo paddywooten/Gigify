@@ -280,7 +280,7 @@ export default function GigDetailPage() {
         ) : gig.status === "OPEN" && user?.role === "MUSICIAN" ? (
           <form onSubmit={apply} className="card space-y-4 p-6">
             <h3 className="font-semibold text-slate-900">Apply to this gig</h3>
-            <Field label="Your rate for this gig (USD)">
+            <Field label="Your rate for this gig (GH₵)">
               <TextInput
                 type="number"
                 min={5}

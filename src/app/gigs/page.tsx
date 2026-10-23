@@ -96,7 +96,7 @@ function GigsPageInner() {
         <TextInput
           type="number"
           min={0}
-          placeholder="Min budget ($)"
+          placeholder="Min budget (GH₵)"
           value={minBudget}
           onChange={(e) => setMinBudget(e.target.value)}
         />

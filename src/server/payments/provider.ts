@@ -90,7 +90,7 @@ function ref(prefix: string): string {
  */
 export class MockPaymentProvider implements PaymentProvider {
   readonly name = "mock";
-  readonly defaultCurrency: Currency = "usd";
+  readonly defaultCurrency: Currency = "ghs";
 
   async charge(input: ChargeInput): Promise<ChargeResult> {
     return {

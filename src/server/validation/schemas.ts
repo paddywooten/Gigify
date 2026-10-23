@@ -116,6 +116,7 @@ export const profileUpdateSchema = z.object({
 
 export const settingsUpdateSchema = z.object({
   commissionRate: z.number().min(0).max(0.5, "Commission cannot exceed 50%."),
+  announcement: z.string().max(300, "Keep the banner under 300 characters.").optional(),
 });
 
 export const adminUserUpdateSchema = z

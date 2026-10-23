@@ -1,8 +1,13 @@
 // Money formatting + small shared helpers.
 
-/** Formats an integer cent amount as USD, e.g. 125000 -> "$1,250.00". */
-export function formatMoney(cents: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
+import { CURRENCY } from "./constants";
+
+/**
+ * Formats an integer minor-unit amount in the platform currency (GHS),
+ * e.g. 125000 -> "GH₵1,250.00".
+ */
+export function formatMoney(cents: number, currency = CURRENCY): string {
+  return new Intl.NumberFormat("en-GH", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,

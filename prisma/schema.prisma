@@ -15,7 +15,8 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String
+  passwordHash String? // null for Google-only accounts
+  googleSub    String? @unique // Google OAuth subject (id) for "Sign in with Google"
   name         String
   role         String // MUSICIAN | CLIENT | ADMIN
   bio          String?

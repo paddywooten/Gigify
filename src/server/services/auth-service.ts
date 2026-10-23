@@ -65,11 +65,86 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
   return { user: toSessionUser(user), token };
 }
 
+export type GoogleProfile = {
+  sub: string;
+  email: string;
+  name: string;
+  picture?: string | null;
+};
+
+/**
+ * Signs in with a verified Google profile: links to an existing account by
+ * Google sub / email, or creates a brand-new account (role from the register
+ * page's hint, default CLIENT — admins are never created via OAuth).
+ */
+export async function loginWithGoogle(
+  profile: GoogleProfile,
+  roleHint: "MUSICIAN" | "CLIENT" | null,
+): Promise<AuthResult> {
+  const email = profile.email.trim().toLowerCase();
+  if (!email) throw badRequest("Google did not provide an email address.");
+
+  // 1) Already linked to a Gigify account?
+  let user = await prisma.user.findUnique({ where: { googleSub: profile.sub } });
+
+  // 2) Existing password account with the same email → link it.
+  if (!user) {
+    const byEmail = await prisma.user.findUnique({ where: { email } });
+    if (byEmail) {
+      if (!byEmail.isActive) throw badRequest("This account has been suspended. Contact support.");
+      user = await prisma.user.update({
+        where: { id: byEmail.id },
+        data: {
+          googleSub: profile.sub,
+          ...(byEmail.avatarUrl || !profile.picture ? {} : { avatarUrl: profile.picture }),
+        },
+      });
+    }
+  }
+
+  // 3) Brand-new account.
+  if (!user) {
+    const role = roleHint ?? "CLIENT";
+    user = await prisma.user.create({
+      data: {
+        email,
+        googleSub: profile.sub,
+        name: profile.name,
+        role,
+        avatarUrl: profile.picture ?? null,
+        ...(role === "MUSICIAN"
+          ? { musicianProfile: { create: {} } }
+          : { clientProfile: { create: { organizationName: "" } } }),
+      },
+    });
+    await notify({
+      userId: user.id,
+      type: "WELCOME",
+      title: "Welcome to Gigify 🎵",
+      body:
+        user.role === "MUSICIAN"
+          ? "Your musician profile is live. Browse open gigs and send your first application."
+          : "Post your first gig and start receiving applications from local musicians.",
+      link: user.role === "MUSICIAN" ? "/gigs" : "/gigs/new",
+    });
+  }
+
+  if (!user.isActive) throw badRequest("This account has been suspended. Contact support.");
+
+  const token = await createSession(user.id);
+  return { user: toSessionUser(user), token };
+}
+
 export async function login(input: { email: string; password: string }): Promise<AuthResult> {
   const email = input.email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw unauthorized("Invalid email or password.");
+  // Google-only accounts have no password — point them at the right door.
+  if (!user.passwordHash) {
+    throw unauthorized('This account signs in with Google. Use "Continue with Google".');
+  }
   // Constant-ish response to avoid account enumeration.
-  if (!user || !(await verifyPassword(input.password, user.passwordHash))) {
+  if (!(await verifyPassword(input.password, user.passwordHash))) {
     throw unauthorized("Invalid email or password.");
   }
   if (!user.isActive) throw badRequest("This account has been suspended. Contact support.");

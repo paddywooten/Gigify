@@ -4,16 +4,52 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api-client";
 import { ROLE_LABELS } from "@/lib/constants";
 import { relativeTime } from "@/lib/format";
+
+const DISMISS_KEY = "gigify_announcement_dismissed";
 
 export default function Nav() {
   const { user, loading, logout, notifications, unreadCount, markNotificationsRead } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Announcement banner: starts hidden until the public settings fetch says
+  // otherwise (avoids a flash for dismissed/absent messages).
+  const [announcement, setAnnouncement] = useState("");
+  const [bannerDismissed, setBannerDismissed] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    api<{ announcement: string }>("/settings")
+      .then((s) => {
+        const message = (s.announcement ?? "").trim();
+        if (!message) return;
+        let seen: string | null = null;
+        try {
+          seen = sessionStorage.getItem(DISMISS_KEY);
+        } catch {
+          // storage unavailable (private mode) — just show the banner
+        }
+        setAnnouncement(message);
+        // A new message re-appears even if an older one was dismissed.
+        setBannerDismissed(seen === message);
+      })
+      .catch(() => {
+        // settings are optional chrome — never block nav on them
+      });
+  }, []);
+
+  function dismissAnnouncement() {
+    try {
+      sessionStorage.setItem(DISMISS_KEY, announcement);
+    } catch {
+      // ignore
+    }
+    setBannerDismissed(true);
+  }
 
   useEffect(() => {
     setMenuOpen(false);
@@ -37,6 +73,22 @@ export default function Nav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur print:hidden">
+      {announcement && !bannerDismissed && (
+        <div className="border-b border-amber-200 bg-amber-50">
+          <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:px-6">
+            <span aria-hidden>📣</span>
+            <p className="flex-1 text-sm text-amber-900">{announcement}</p>
+            <button
+              type="button"
+              onClick={dismissAnnouncement}
+              aria-label="Dismiss announcement"
+              className="rounded-md p-1 text-amber-700 hover:bg-amber-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold text-slate-900">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">♪</span>

@@ -332,7 +332,7 @@ function ProfileForm() {
             <ChipPicker options={GENRES} selected={genres} onChange={setGenres} max={6} />
           </Field>
           <div className="grid gap-5 sm:grid-cols-3">
-            <Field label="Day rate ($)">
+            <Field label="Day rate (GH₵)">
               <TextInput type="number" min={0} step="10" value={dayRate} onChange={(e) => setDayRate(e.target.value)} />
             </Field>
             <Field label="Travel radius (km)">

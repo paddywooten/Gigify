@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { SessionUser } from "@/lib/types";
 import { ErrorBanner, Field, TextInput } from "@/components/ui";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
+
+/** OAuth failure codes → friendly copy (set on the callback redirect). */
+const GOOGLE_ERRORS: Record<string, string> = {
+  google_unconfigured:
+    "Google sign-in isn't configured on this server yet — set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (see .env.example).",
+  google_denied: "Google sign-in was cancelled or declined.",
+  google_state: "That Google sign-in link expired — please try again.",
+  google_email: "Your Google account doesn't have a verified email address.",
+  google_exchange: "Couldn't complete Google sign-in. Please try again.",
+  google_suspended: "This account has been suspended. Contact support.",
+};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +27,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Surface OAuth redirect errors (?error=…) and strip them from the URL.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code && GOOGLE_ERRORS[code]) {
+      setError(GOOGLE_ERRORS[code]);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,8 +60,17 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
         <p className="mt-1 text-sm text-slate-500">Sign in to manage your gigs and bookings.</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <ErrorBanner message={error} />
+        <ErrorBanner message={error} />
+
+        <GoogleSignInButton className="mt-5" next="/dashboard" />
+
+        <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+          <div className="h-px flex-1 bg-slate-200" />
+          or continue with email
+          <div className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Email">
             <TextInput
               type="email"

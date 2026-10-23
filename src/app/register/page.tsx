@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { GENRES, INSTRUMENTS, ORG_TYPES, ROLE_LABELS } from "@/lib/constants";
 import type { SessionUser } from "@/lib/types";
 import { ErrorBanner, Field, Select, TextInput } from "@/components/ui";
+import GoogleSignInButton from "@/components/GoogleSignInButton";
 
 type Role = "MUSICIAN" | "CLIENT";
 
@@ -155,6 +156,14 @@ function RegisterForm() {
             />
           </Field>
 
+          <GoogleSignInButton role={role} className="mt-1" />
+
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            <div className="h-px flex-1 bg-slate-200" />
+            or fill in your details
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
           <Field label="Your name">
             <TextInput required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
           </Field>
@@ -189,7 +198,7 @@ function RegisterForm() {
               <Field label="Genres">
                 <ChipPicker options={GENRES} selected={genres} onChange={setGenres} max={6} />
               </Field>
-              <Field label="Typical day rate (USD)" hint="You can negotiate per gig.">
+              <Field label="Typical day rate (GH₵)" hint="You can negotiate per gig.">
                 <TextInput
                   type="number"
                   min={0}

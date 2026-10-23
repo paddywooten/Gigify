@@ -1,10 +1,11 @@
 // Admin: platform stats, user management, settings.
 
 import { prisma } from "@/server/db";
-import { badRequest, forbidden, notFound } from "@/server/errors";
+import { badRequest, conflict, forbidden, notFound } from "@/server/errors";
 import type { SessionUser } from "@/server/auth/session";
-import type { AdminStatsDTO, AdminUserDTO } from "@/lib/types";
+import type { AdminGigDTO, AdminStatsDTO, AdminUserDTO } from "@/lib/types";
 import { paginated } from "./helpers";
+import { notify } from "./notification-service";
 import type { Paginated } from "@/lib/types";
 
 export async function getAdminStats(): Promise<AdminStatsDTO> {
@@ -127,4 +128,82 @@ export async function updateUserByAdmin(
   });
 
   return { ...updated, role: updated.role as AdminUserDTO["role"], createdAt: updated.createdAt.toISOString() };
+}
+
+// --- Gig moderation ----------------------------------------------------------
+
+/** Admin view of every gig on the platform (with organizer + application context). */
+export async function listGigsForAdmin(
+  opts: { status?: string; page: number; limit: number },
+): Promise<Paginated<AdminGigDTO>> {
+  const where = opts.status ? { status: opts.status } : {};
+
+  const [rows, total] = await Promise.all([
+    prisma.gig.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (opts.page - 1) * opts.limit,
+      take: opts.limit,
+      include: {
+        organizer: { select: { id: true, name: true, email: true } },
+        applications: { select: { status: true } },
+        booking: { select: { status: true } },
+      },
+    }),
+    prisma.gig.count({ where }),
+  ]);
+
+  const items = rows.map((g): AdminGigDTO => ({
+    id: g.id,
+    title: g.title,
+    gigType: g.gigType,
+    status: g.status,
+    eventDate: g.eventDate.toISOString(),
+    location: g.location,
+    budgetCents: g.budgetCents,
+    createdAt: g.createdAt.toISOString(),
+    organizer: g.organizer,
+    pendingApplications: g.applications.filter((a) => a.status === "PENDING").length,
+    bookingStatus: g.booking?.status ?? null,
+  }));
+
+  return paginated(items, total, opts.page, opts.limit);
+}
+
+/**
+ * Takes a gig down (moderation): OPEN → CANCELLED, pending applications
+ * rejected, organizer notified. Booked/completed gigs must be resolved
+ * through the booking flow first — never yanked from under a booking.
+ */
+export async function adminCancelGig(
+  admin: SessionUser,
+  gigId: string,
+): Promise<{ id: string; status: string; rejectedApplications: number }> {
+  if (admin.role !== "ADMIN") throw forbidden("Only admins can take gigs down.");
+
+  const gig = await prisma.gig.findUnique({ where: { id: gigId }, include: { booking: true } });
+  if (!gig) throw notFound("Gig not found.");
+  if (gig.status === "CANCELLED") throw conflict("This gig is already cancelled.");
+  if (gig.status === "COMPLETED") throw conflict("Completed gigs can't be taken down.");
+  if (gig.status === "BOOKED" || gig.booking) {
+    throw conflict("This gig has an active booking — resolve the booking before taking it down.");
+  }
+
+  const [, rejected] = await prisma.$transaction([
+    prisma.gig.update({ where: { id: gigId }, data: { status: "CANCELLED" } }),
+    prisma.application.updateMany({
+      where: { gigId, status: "PENDING" },
+      data: { status: "REJECTED" },
+    }),
+  ]);
+
+  await notify({
+    userId: gig.organizerId,
+    type: "GIG_TAKEN_DOWN",
+    title: "Your gig was taken down",
+    body: `Gigify moderation removed "${gig.title}". Contact support if you believe this was a mistake.`,
+    link: "/dashboard",
+  });
+
+  return { id: gig.id, status: "CANCELLED", rejectedApplications: rejected.count };
 }

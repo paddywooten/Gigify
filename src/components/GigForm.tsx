@@ -102,7 +102,7 @@ export default function GigForm({
             onChange={(e) => setDurationHours(e.target.value)}
           />
         </Field>
-        <Field label="Total budget (USD)" hint="What the musician receives before platform commission.">
+        <Field label="Total budget (GH₵)" hint="What the musician receives before platform commission.">
           <TextInput
             type="number"
             min={5}

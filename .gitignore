@@ -37,5 +37,8 @@ next-env.d.ts
 # local media uploads (musician portfolio files)
 /uploads/
 
+# firebase CLI deploy cache
+/.firebase/
+
 # vitest
 /coverage
