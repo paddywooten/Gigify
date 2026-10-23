@@ -6,8 +6,20 @@ Musicians browse gigs and apply with their rate. Organizers pick a musician, fun
 
 ---
 
+## Live website
+
+The public **HTML / CSS / JavaScript website** (source in [`docs/`](docs/)) is deployed to both hosts:
+
+- **GitHub Pages:** https://paddywooten.github.io/Gigify/
+- **Firebase Hosting:** https://gigify-d4aa7.web.app
+
+It ships the landing page, the gigs + musicians directories with live client-side filtering, and demo sign-in/register flows — plain static files, no build step. The full application (real accounts, bookings, escrow, contracts, email) is the Next.js codebase in `src/`, and Firebase **App Hosting** for it still requires the Blaze plan.
+
+---
+
 ## Table of contents
 
+- [Live website](#live-website)
 - [Quick start](#quick-start)
 - [Demo accounts](#demo-accounts)
 - [What's implemented](#whats-implemented)
@@ -174,6 +186,10 @@ Key decisions:
 ## Project structure
 
 ```
+docs/                    # public static website (HTML/CSS/JS) — deployed to Pages + Firebase Hosting
+  index.html, gigs.html, musicians.html, login.html, register.html
+  css/styles.css         # design system (vanilla CSS, matches the app's palette)
+  js/data.js, js/main.js # demo marketplace data + filters/auth/modal behaviour
 prisma/
   schema.prisma           # User, Session, Gig, Application, Booking, Payment, Review, …
   seed.ts                 # demo accounts, gigs, a completed booking, a pending escrow
