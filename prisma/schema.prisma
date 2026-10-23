@@ -1,4 +1,4 @@
-// Prisma schema for SoundBridge.
+// Prisma schema for Gigify.
 // NOTE: the project runs on SQLite for zero-config local dev; enums are modelled
 // as strings with TS unions + zod validation (src/lib/constants.ts). Swap the
 // datasource provider to postgresql for production without touching app code.

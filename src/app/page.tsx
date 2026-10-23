@@ -31,7 +31,7 @@ export default function LandingPage() {
             The right musician for every gathering.
           </h1>
           <p className="mt-4 text-lg text-white/85">
-            SoundBridge connects churches, venues and event organizers with reviewed local musicians —
+            Gigify connects churches, venues and event organizers with reviewed local musicians —
             with escrow-backed payments and a transparent platform commission, so everyone knows where
             the money goes.
           </p>

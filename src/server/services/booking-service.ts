@@ -230,7 +230,7 @@ export async function transitionBooking(
         userId: booking.clientId,
         type: "BOOKING_COMPLETED",
         title: "Please review your musician",
-        body: `Thanks for using SoundBridge for “${booking.gig.title}”. Leave a review to help the community.`,
+        body: `Thanks for using Gigify for “${booking.gig.title}”. Leave a review to help the community.`,
         link: `/bookings/${id}`,
       });
       break;

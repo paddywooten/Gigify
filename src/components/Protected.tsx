@@ -22,7 +22,7 @@ export default function Protected({
     return (
       <EmptyState
         title="Sign in to continue"
-        description="This area is only available to signed-in members of SoundBridge."
+        description="This area is only available to signed-in members of Gigify."
         action={
           <Link href="/login" className="btn-primary">
             Sign in

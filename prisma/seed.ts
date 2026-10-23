@@ -15,7 +15,7 @@ const days = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 const COMMISSION_RATE = 0.15;
 
 async function main() {
-  console.log("🌱 Seeding SoundBridge…");
+  console.log("🌱 Seeding Gigify…");
 
   // Clean slate (dev-only convenience).
   await prisma.$transaction([
@@ -40,18 +40,18 @@ async function main() {
 
   const admin = await prisma.user.create({
     data: {
-      email: "admin@soundbridge.test",
+      email: "admin@gigify.test",
       passwordHash,
       name: "Alex Admin",
       role: "ADMIN",
-      bio: "SoundBridge platform team.",
+      bio: "Gigify platform team.",
       location: "Remote",
     },
   });
 
   const grace = await prisma.user.create({
     data: {
-      email: "church@soundbridge.test",
+      email: "church@gigify.test",
       passwordHash,
       name: "Pastor Karen Miller",
       role: "CLIENT",
@@ -69,7 +69,7 @@ async function main() {
 
   const lumen = await prisma.user.create({
     data: {
-      email: "events@soundbridge.test",
+      email: "events@gigify.test",
       passwordHash,
       name: "Marcus Lee",
       role: "CLIENT",
@@ -83,7 +83,7 @@ async function main() {
 
   const maya = await prisma.user.create({
     data: {
-      email: "musician@soundbridge.test",
+      email: "musician@gigify.test",
       passwordHash,
       name: "Maya Chen",
       role: "MUSICIAN",
@@ -105,7 +105,7 @@ async function main() {
 
   const james = await prisma.user.create({
     data: {
-      email: "james@soundbridge.test",
+      email: "james@gigify.test",
       passwordHash,
       name: "James Okafor",
       role: "MUSICIAN",
@@ -127,7 +127,7 @@ async function main() {
 
   const sofia = await prisma.user.create({
     data: {
-      email: "sofia@soundbridge.test",
+      email: "sofia@gigify.test",
       passwordHash,
       name: "Sofía Ramírez",
       role: "MUSICIAN",
@@ -148,7 +148,7 @@ async function main() {
 
   const daniel = await prisma.user.create({
     data: {
-      email: "daniel@soundbridge.test",
+      email: "daniel@gigify.test",
       passwordHash,
       name: "Daniel Whitfield",
       role: "MUSICIAN",
@@ -445,11 +445,11 @@ async function main() {
 
   console.log("✅ Seed complete.");
   console.log("   Demo logins (password: password123):");
-  console.log("   - admin@soundbridge.test   (platform admin)");
-  console.log("   - church@soundbridge.test  (client: Grace Community Church)");
-  console.log("   - events@soundbridge.test  (client: Lumen Events)");
-  console.log("   - musician@soundbridge.test (musician: Maya Chen)");
-  console.log("   - james@soundbridge.test, sofia@soundbridge.test, daniel@soundbridge.test");
+  console.log("   - admin@gigify.test   (platform admin)");
+  console.log("   - church@gigify.test  (client: Grace Community Church)");
+  console.log("   - events@gigify.test  (client: Lumen Events)");
+  console.log("   - musician@gigify.test (musician: Maya Chen)");
+  console.log("   - james@gigify.test, sofia@gigify.test, daniel@gigify.test");
 }
 
 main()

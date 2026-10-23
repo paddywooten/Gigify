@@ -237,7 +237,7 @@ function ProfileForm() {
 export default function ProfilePage() {
   return (
     <Protected>
-      <PageHeader title="Profile settings" subtitle="How organizers and musicians see you on SoundBridge." />
+      <PageHeader title="Profile settings" subtitle="How organizers and musicians see you on Gigify." />
       <ProfileForm />
     </Protected>
   );

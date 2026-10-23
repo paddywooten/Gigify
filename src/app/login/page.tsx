@@ -67,7 +67,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-500">
-          New to SoundBridge?{" "}
+          New to Gigify?{" "}
           <Link href="/register" className="font-medium text-brand-600 hover:underline">
             Create an account
           </Link>
@@ -76,7 +76,7 @@ export default function LoginPage() {
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">
         <p className="font-semibold text-slate-700">Demo accounts (after seeding)</p>
-        <p className="mt-1">admin@soundbridge.test / musician@soundbridge.test / church@soundbridge.test</p>
+        <p className="mt-1">admin@gigify.test / musician@gigify.test / church@gigify.test</p>
         <p>Password for all: <span className="font-mono">password123</span></p>
       </div>
     </div>

@@ -53,7 +53,7 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
   await notify({
     userId: user.id,
     type: "WELCOME",
-    title: "Welcome to SoundBridge 🎵",
+    title: "Welcome to Gigify 🎵",
     body:
       user.role === "MUSICIAN"
         ? "Your musician profile is live. Browse open gigs and send your first application."

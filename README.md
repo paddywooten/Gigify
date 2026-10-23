@@ -1,4 +1,4 @@
-# SoundBridge 🎵
+# Gigify 🎵
 
 A marketplace that connects **churches, venues and event organizers** with **reviewed local musicians** for gigs — with escrow-backed payments and a transparent, percentage-based platform commission.
 
@@ -58,14 +58,14 @@ All seeded accounts use the password `password123`:
 
 | Email | Role | Notes |
 | --- | --- | --- |
-| `admin@soundbridge.test` | Admin | Stats, commission settings, disputes, user moderation |
-| `church@soundbridge.test` | Client | Grace Community Church — has a booking **awaiting escrow funding** |
-| `events@soundbridge.test` | Client | Lumen Events — has a **completed** gig with reviews |
-| `musician@soundbridge.test` | Musician | Maya Chen — pending applications + a completed paid gig |
-| `james@soundbridge.test` | Musician | Jazz guitarist — $1,275 payout example |
-| `sofia@soundbridge.test`, `daniel@soundbridge.test` | Musician | Extra directory profiles |
+| `admin@gigify.test` | Admin | Stats, commission settings, disputes, user moderation |
+| `church@gigify.test` | Client | Grace Community Church — has a booking **awaiting escrow funding** |
+| `events@gigify.test` | Client | Lumen Events — has a **completed** gig with reviews |
+| `musician@gigify.test` | Musician | Maya Chen — pending applications + a completed paid gig |
+| `james@gigify.test` | Musician | Jazz guitarist — $1,275 payout example |
+| `sofia@gigify.test`, `daniel@gigify.test` | Musician | Extra directory profiles |
 
-**Suggested tour:** sign in as `church@soundbridge.test` → Dashboard → open the youth-night booking → **Fund escrow**. Then sign in as `musician@soundbridge.test` → start the gig, sign back in as the church → **Confirm completion & pay**, and leave reviews on both sides. Check `admin@soundbridge.test` → Admin to see platform revenue and the commission setting.
+**Suggested tour:** sign in as `church@gigify.test` → Dashboard → open the youth-night booking → **Fund escrow**. Then sign in as `musician@gigify.test` → start the gig, sign back in as the church → **Confirm completion & pay**, and leave reviews on both sides. Check `admin@gigify.test` → Admin to see platform revenue and the commission setting.
 
 ---
 
