@@ -7,7 +7,7 @@ import { prisma } from "@/server/db";
 import { badRequest, conflict, forbidden, notFound } from "@/server/errors";
 import type { SessionUser } from "@/server/auth/session";
 import { computeCommission } from "@/server/domain/commission";
-import { getPaymentProvider } from "@/server/payments/provider";
+import { getPaymentProvider, platformCurrency, type ClientAction } from "@/server/payments/provider";
 import { toBookingDTO } from "./serializers";
 import { paginated } from "./helpers";
 import { notify, notifyAdmins } from "./notification-service";
@@ -26,6 +26,35 @@ const BOOKING_INCLUDE = {
 type BookingRecord = Prisma.BookingGetPayload<{ include: typeof BOOKING_INCLUDE }>;
 
 export type BookingActor = "CLIENT" | "MUSICIAN" | "ADMIN";
+
+/** Booking DTO plus, for real providers, the client-side action needed to finish payment. */
+export type FundResponse = BookingDTO & { clientAction?: ClientAction };
+
+/** Resolves the musician's payout destination for real providers (Stripe Connect / Paystack recipient). */
+async function resolvePayoutDestination(
+  providerName: string,
+  musicianId: string,
+): Promise<string | undefined> {
+  if (providerName === "mock") return undefined;
+  const musician = await prisma.user.findUnique({
+    where: { id: musicianId },
+    select: { stripeAccountId: true, paystackRecipientCode: true },
+  });
+  if (!musician) return undefined;
+  if (providerName === "stripe") return musician.stripeAccountId ?? undefined;
+  if (providerName === "paystack") return musician.paystackRecipientCode ?? undefined;
+  return undefined;
+}
+
+async function notifyFunded(booking: BookingRecord): Promise<void> {
+  await notify({
+    userId: booking.musicianId,
+    type: "BOOKING_FUNDED",
+    title: "Funds are secured in escrow 💰",
+    body: `${booking.client.name} has funded “${booking.gig.title}”. You'll be paid ${formatMoney(booking.musicianPayoutCents)} after the gig is completed.`,
+    link: `/bookings/${booking.id}`,
+  });
+}
 
 /** Creates the escrow booking when a client accepts a musician's application. */
 export async function createBookingFromApplication(applicationId: string): Promise<BookingRecord> {
@@ -89,8 +118,20 @@ export async function getBooking(id: string, user: SessionUser): Promise<Booking
   return toBookingDTO(await loadBookingForUser(id, user));
 }
 
-/** Client funds the escrow for a booking. */
-export async function fundBooking(user: SessionUser, id: string): Promise<BookingDTO> {
+/**
+ * Client funds the escrow for a booking.
+ *
+ * Two flows share this entry point:
+ *  - mock / instant providers: charge() succeeds immediately → FUNDED
+ *  - real providers (stripe/paystack): charge() returns PENDING + a clientAction
+ *    (card entry happens in the browser), then a second call with the returned
+ *    providerRef verifies the charge with the provider → FUNDED
+ */
+export async function fundBooking(
+  user: SessionUser,
+  id: string,
+  opts: { providerRef?: string } = {},
+): Promise<FundResponse> {
   const booking = await loadBookingForUser(id, user);
   if (booking.clientId !== user.id) throw forbidden("Only the client can fund this booking.");
   if (booking.status !== "PENDING_FUNDING") {
@@ -98,11 +139,44 @@ export async function fundBooking(user: SessionUser, id: string): Promise<Bookin
   }
 
   const provider = getPaymentProvider();
+  const currency = platformCurrency(provider);
+
+  // --- Second leg: confirm a pending charge with the provider ---------------
+  if (opts.providerRef) {
+    const result = await provider.confirmCharge({
+      bookingId: booking.id,
+      providerRef: opts.providerRef,
+      expectedAmountCents: booking.totalCents,
+    });
+
+    const row = await prisma.payment.findFirst({
+      where: { bookingId: booking.id, providerRef: opts.providerRef, status: "PENDING" },
+    });
+
+    if (!result.success) {
+      if (row) await prisma.payment.update({ where: { id: row.id }, data: { status: "FAILED" } });
+      throw badRequest(result.failureReason ?? "Payment could not be verified. Please try again.");
+    }
+
+    if (row) await prisma.payment.update({ where: { id: row.id }, data: { status: "SUCCEEDED" } });
+
+    // Status-guarded transition (a concurrent webhook may have settled it first).
+    const claimed = await prisma.booking.updateMany({
+      where: { id: booking.id, status: "PENDING_FUNDING" },
+      data: { status: "FUNDED", fundedAt: new Date() },
+    });
+    if (claimed.count > 0) await notifyFunded(booking);
+    return getBooking(id, user);
+  }
+
+  // --- First leg: initiate the charge ---------------------------------------
   const result = await provider.charge({
     amountCents: booking.totalCents,
     bookingId: booking.id,
     payerUserId: user.id,
+    payerEmail: user.email,
     description: `Escrow funding for “${booking.gig.title}”`,
+    currency,
   });
 
   await prisma.$transaction(async (tx) => {
@@ -112,30 +186,28 @@ export async function fundBooking(user: SessionUser, id: string): Promise<Bookin
         payerId: user.id,
         amountCents: booking.totalCents,
         type: "CLIENT_FUNDING",
-        status: result.success ? "SUCCEEDED" : "FAILED",
+        status: result.status,
         provider: result.provider,
         providerRef: result.providerRef,
       },
     });
-    if (!result.success) return;
+    if (result.status !== "SUCCEEDED") return;
     await tx.booking.update({
       where: { id: booking.id },
       data: { status: "FUNDED", fundedAt: new Date() },
     });
   });
 
-  if (!result.success) {
+  if (result.status === "FAILED") {
     throw badRequest(result.failureReason ?? "Payment failed. Please try another method.");
   }
 
-  await notify({
-    userId: booking.musicianId,
-    type: "BOOKING_FUNDED",
-    title: "Funds are secured in escrow 💰",
-    body: `${user.name} has funded “${booking.gig.title}”. You'll be paid ${formatMoney(booking.musicianPayoutCents)} after the gig is completed.`,
-    link: `/bookings/${booking.id}`,
-  });
+  if (result.status === "PENDING" && result.clientAction) {
+    // Card entry happens client-side; the client then re-calls with providerRef.
+    return { ...(await getBooking(id, user)), clientAction: result.clientAction };
+  }
 
+  await notifyFunded(booking);
   return getBooking(id, user);
 }
 
@@ -176,12 +248,16 @@ export async function transitionBooking(
       }
 
       const provider = getPaymentProvider();
+      const currency = platformCurrency(provider);
+      const destinationAccount = await resolvePayoutDestination(provider.name, booking.musicianId);
       const [payoutResult, feeResult] = await Promise.all([
         provider.payout({
           amountCents: booking.musicianPayoutCents,
           bookingId: booking.id,
           payeeUserId: booking.musicianId,
+          destinationAccount,
           description: `Payout for “${booking.gig.title}”`,
+          currency,
         }),
         Promise.resolve({
           success: true,
@@ -219,13 +295,30 @@ export async function transitionBooking(
         await tx.gig.update({ where: { id: booking.gigId }, data: { status: "COMPLETED" } });
       });
 
-      await notify({
-        userId: booking.musicianId,
-        type: "BOOKING_COMPLETED",
-        title: "Gig completed — payout sent 🎉",
-        body: `“${booking.gig.title}” is complete. ${formatMoney(booking.musicianPayoutCents)} has been paid out to you.`,
-        link: `/bookings/${id}`,
-      });
+      if (payoutResult.success) {
+        await notify({
+          userId: booking.musicianId,
+          type: "BOOKING_COMPLETED",
+          title: "Gig completed — payout sent 🎉",
+          body: `“${booking.gig.title}” is complete. ${formatMoney(booking.musicianPayoutCents)} has been paid out to you.`,
+          link: `/bookings/${id}`,
+        });
+      } else {
+        const reason = payoutResult.failureReason ?? "The transfer failed.";
+        await notify({
+          userId: booking.musicianId,
+          type: "PAYOUT_FAILED",
+          title: "Gig completed — payout pending ⚠️",
+          body: `“${booking.gig.title}” is complete, but the ${formatMoney(booking.musicianPayoutCents)} payout could not be sent: ${reason} The platform team has been notified and will follow up.`,
+          link: `/bookings/${id}`,
+        });
+        await notifyAdmins({
+          type: "PAYOUT_FAILED",
+          title: "Payout failed — manual follow-up needed",
+          body: `Payout of ${formatMoney(booking.musicianPayoutCents)} for “${booking.gig.title}” (booking ${booking.id}) failed: ${reason}`,
+          link: `/admin`,
+        });
+      }
       await notify({
         userId: booking.clientId,
         type: "BOOKING_COMPLETED",
@@ -303,14 +396,24 @@ export async function resolveDispute(
   if (booking.status !== "DISPUTED") throw conflict("This booking is not in dispute.");
 
   const provider = getPaymentProvider();
+  const currency = platformCurrency(provider);
 
   if (outcome === "MUSICIAN_PAYOUT") {
+    const destinationAccount = await resolvePayoutDestination(provider.name, booking.musicianId);
     const payout = await provider.payout({
       amountCents: booking.musicianPayoutCents,
       bookingId: booking.id,
       payeeUserId: booking.musicianId,
+      destinationAccount,
       description: `Dispute resolution payout for “${booking.gig.title}”`,
+      currency,
     });
+    // Never mark a dispute resolved if the money did not move.
+    if (!payout.success) {
+      throw badRequest(
+        `Payout failed, so the dispute remains open: ${payout.failureReason ?? "unknown error"}`,
+      );
+    }
     await prisma.$transaction(async (tx) => {
       await tx.payment.create({
         data: {
@@ -336,11 +439,23 @@ export async function resolveDispute(
       await tx.gig.update({ where: { id: booking.gigId }, data: { status: "COMPLETED" } });
     });
   } else {
+    const funding = await prisma.payment.findFirst({
+      where: { bookingId: id, type: "CLIENT_FUNDING", status: "SUCCEEDED" },
+      orderBy: { createdAt: "desc" },
+    });
     const refund = await provider.refund({
       amountCents: booking.totalCents,
       bookingId: booking.id,
+      originalRef: funding?.providerRef,
       description: `Dispute resolution refund for “${booking.gig.title}”`,
+      currency,
     });
+    // Never mark a dispute resolved if the money did not move.
+    if (!refund.success) {
+      throw badRequest(
+        `Refund failed, so the dispute remains open: ${refund.failureReason ?? "unknown error"}`,
+      );
+    }
     await prisma.$transaction(async (tx) => {
       await tx.payment.create({
         data: {

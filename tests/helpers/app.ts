@@ -82,3 +82,87 @@ export async function registerAdmin(): Promise<TestUser> {
 export async function json(res: Response): Promise<Record<string, unknown>> {
   return (await res.json()) as Record<string, unknown>;
 }
+
+export type BookingFixture = {
+  client: TestUser;
+  musician: TestUser;
+  gigId: string;
+  applicationId: string;
+  bookingId: string;
+  totalCents: number;
+};
+
+/**
+ * Drives the real routes through gig → application → accept, which leaves a
+ * booking in PENDING_FUNDING. Reused by flow tests that exercise payments.
+ */
+export async function createBookingFixture(rateCents = 30000): Promise<BookingFixture> {
+  const day = 86_400_000;
+  const client = await registerUser("CLIENT");
+  const musician = await registerUser("MUSICIAN");
+
+  const { POST: createGig } = await import("@/app/api/v1/gigs/route");
+  const gigRes = await createGig(
+    makeReq("/gigs", {
+      method: "POST",
+      cookie: client.cookie,
+      body: {
+        title: "Fixture gig for payment tests",
+        description: "A perfectly valid gig description used by the integration test suite.",
+        gigType: "CHURCH_SERVICE",
+        genres: ["Gospel"],
+        eventDate: new Date(Date.now() + 10 * day).toISOString(),
+        durationHours: 2,
+        location: "Austin, TX",
+        venueName: "Test Chapel",
+        budgetCents: rateCents,
+      },
+    }),
+  );
+  if (gigRes.status !== 201) throw new Error(`fixture gig failed: ${gigRes.status}`);
+  const gig = await json(gigRes);
+
+  const { POST: applyToGig } = await import("@/app/api/v1/gigs/[id]/applications/route");
+  const appRes = await applyToGig(
+    makeReq(`/gigs/${gig.id}/applications`, {
+      method: "POST",
+      cookie: musician.cookie,
+      body: {
+        message: "I would love to play this gig, here is my introduction.",
+        proposedRateCents: rateCents,
+      },
+    }),
+    ctxFor(String(gig.id)),
+  );
+  if (appRes.status !== 201) throw new Error(`fixture application failed: ${appRes.status}`);
+  const application = await json(appRes);
+
+  const { PATCH: decideApplication } = await import("@/app/api/v1/applications/[id]/route");
+  const acceptRes = await decideApplication(
+    makeReq(`/applications/${application.id}`, {
+      method: "PATCH",
+      cookie: client.cookie,
+      body: { action: "ACCEPT" },
+    }),
+    ctxFor(String(application.id)),
+  );
+  if (acceptRes.status !== 200) throw new Error(`fixture accept failed: ${acceptRes.status}`);
+
+  // ACCEPT responds with the application; the booking is fetched from the list.
+  const { GET: listBookings } = await import("@/app/api/v1/bookings/route");
+  const listRes = await listBookings(makeReq("/bookings", { cookie: client.cookie }));
+  const list = await json(listRes);
+  const booking = (list.items as Array<{ id: string; gigId: string }>).find(
+    (b) => b.gigId === String(gig.id),
+  );
+  if (!booking) throw new Error("fixture booking not found after accept");
+
+  return {
+    client,
+    musician,
+    gigId: String(gig.id),
+    applicationId: String(application.id),
+    bookingId: booking.id,
+    totalCents: rateCents,
+  };
+}

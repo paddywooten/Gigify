@@ -25,6 +25,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Payout destinations used by the real payment providers (nullable: only
+  // needed once Stripe Connect / Paystack recipient onboarding is done).
+  stripeAccountId       String?
+  paystackRecipientCode String?
+
   musicianProfile    MusicianProfile?
   clientProfile      ClientProfile?
   sessions           Session[]

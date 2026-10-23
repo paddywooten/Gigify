@@ -98,7 +98,12 @@ FUNDED / IN_PROGRESS → DISPUTED → admin resolves → COMPLETED (paid) or REF
 - Escrow funding, musician payout and platform fee as immutable `Payment` rows with provider refs
 - Commission rate **snapshotted onto each booking** — a later settings change never rewrites existing deals
 - Admin-adjustable commission rate (0–50%)
-- Payment provider abstraction (`mock` now, `stripe` stub ready to implement)
+- Payment provider abstraction with three implementations:
+  - `mock` — instant, always-succeeding (local development & tests)
+  - `stripe` — real escrow via Stripe test mode: PaymentIntents (fund), Transfers (payout), Refunds (disputes), idempotency keys, signed webhooks
+  - `paystack` — real escrow via Paystack test mode: transaction initialize/verify, balance transfers, refunds, HMAC-SHA512-signed webhooks
+- Two-step funding for real providers: `POST /bookings/:id/fund` returns a `clientAction` (card entry happens client-side), a second call with `providerRef` confirms the charge with the provider
+- Webhook endpoints (`/api/v1/webhooks/stripe|paystack`) settle bookings idempotently with signature + amount verification
 
 **Trust & moderation**
 - Mutual post-gig reviews (one per party per booking, only after completion)
@@ -188,9 +193,10 @@ Base path: `/api/v1`. All mutating endpoints require a session cookie unless not
 | `GET /applications` | musician | My applications |
 | `PATCH /applications/:id` | organizer/musician | `ACCEPT` / `REJECT` / `WITHDRAW` (accept creates the booking) |
 | `GET /bookings` · `GET /bookings/:id` | party/admin | Booking lists & detail (escrow, payments, reviews) |
-| `POST /bookings/:id/fund` | client | Fund escrow via payment provider |
+| `POST /bookings/:id/fund` | client | Fund escrow. Body optional: `{ providerRef }` confirms a pending real-provider charge (stripe/paystack) |
 | `POST /bookings/:id/action` | party | `START` / `COMPLETE` / `CANCEL` / `DISPUTE` |
 | `POST /bookings/:id/reviews` | party | Review after completion |
+| `POST /webhooks/stripe` · `POST /webhooks/paystack` | signature | Payment provider webhooks (HMAC-verified, idempotent escrow settlement) |
 | `GET /musicians` · `GET /musicians/:id` | public | Directory & profiles |
 | `PATCH /profile` · `GET /profile` | session | Own profile |
 | `GET /notifications` · `PATCH /notifications` | session | In-app notifications |
@@ -207,13 +213,14 @@ npm test
 - `tests/commission.test.ts` — unit tests for the split math (rounding, invariants, bounds)
 - `tests/api-auth.test.ts` — registration/login/logout, role guards, validation
 - `tests/api-flow.test.ts` — full integration: gig → application → booking → escrow → completion → payouts → reviews, plus commission-rate snapshots, cancellation, disputes and admin revenue stats
+- `tests/payments.test.ts` — Stripe/Paystack provider behavior with fully mocked HTTP, webhook signature verification + idempotent settlement, and the two-step funding contract
 
-Tests call the **real route handlers** with `NextRequest`s against a dedicated SQLite test database (`prisma/test.db`, reset per run) — no network, no mocks of our own code. The payment provider is the `mock` implementation.
+Tests call the **real route handlers** with `NextRequest`s against a dedicated SQLite test database (`prisma/test.db`, reset per run) — no network, no mocks of our own code. The payment provider is the `mock` implementation unless a test injects one.
 
 ## Going to production
 
 1. **Database** — set `DATABASE_URL` to PostgreSQL and run `npx prisma db push` (or migrations). No application code changes required.
-2. **Payments** — implement `StripePaymentProvider` in `src/server/payments/provider.ts` (PaymentIntents for escrow funding, Transfer/Payout for musician payouts, Refunds for dispute resolutions) and set `PAYMENT_PROVIDER=stripe`.
+2. **Payments** — `StripePaymentProvider` and `PaystackPaymentProvider` are implemented (test mode). To go live: add the secret keys + webhook secrets, complete Stripe Connect / Paystack recipient onboarding per musician (fields exist on `User`), and switch `PAYMENT_PROVIDER`.
 3. **Sessions** — set `NODE_ENV=production` so cookies are `Secure`.
 4. **Email** — `notification-service.ts` is the single place to add transactional email alongside the in-app records.
 5. **Hardening** — add rate limiting on `/auth/*` and `/bookings/:id/fund`, background job to expire unpaid bookings, and legal pages (terms, payout/KYC for musicians above marketplace thresholds).
@@ -232,7 +239,10 @@ Configuration lives in `apphosting.yaml`. On boot, `src/server/db.ts` runs the P
 
 ## Roadmap
 
-- [ ] Stripe integration (real escrow, Connect payouts, webhooks)
+- [x] Stripe escrow (test mode): PaymentIntents, Transfers, Refunds, signed webhooks
+- [x] Paystack escrow (test mode): initialize/verify, transfers, refunds, signed webhooks
+- [ ] Card-entry UI (Stripe Elements / Paystack Inline) — activates when test keys are added
+- [ ] Payout onboarding: Stripe Connect account links / Paystack recipient collection in the app
 - [ ] Contracts: generated gig agreement both parties sign in-app
 - [ ] Availability calendars + instant booking for pre-agreed rates
 - [ ] Saved/favorite musicians & recurring gigs for churches

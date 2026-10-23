@@ -22,7 +22,16 @@ env:
     availability:
       - RUNTIME
 
-  # Payments run through the mock provider (no real charges). Set to "stripe"
-  # and configure Stripe keys as App Hosting secrets to take live payments.
+  # Payments run through the mock provider (no real charges). To use Stripe or
+  # Paystack test mode in the hosted build, uncomment/fill these (console-set
+  # values override this file; prefer the console or secrets for real keys):
   - variable: PAYMENT_PROVIDER
     value: "mock"
+  # - variable: STRIPE_SECRET_KEY
+  #   secret: stripeSecretKey
+  # - variable: STRIPE_WEBHOOK_SECRET
+  #   secret: stripeWebhookSecret
+  # - variable: PAYSTACK_SECRET_KEY
+  #   secret: paystackSecretKey
+  # - variable: PAYSTACK_WEBHOOK_SECRET
+  #   secret: paystackWebhookSecret

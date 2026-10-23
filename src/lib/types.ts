@@ -94,6 +94,20 @@ export interface PaymentDTO {
   createdAt: string;
 }
 
+/** Client-side payment action returned by POST /bookings/:id/fund for real providers. */
+export type ClientAction =
+  | { kind: "stripe_payment_element"; clientSecret: string }
+  | {
+      kind: "paystack_inline";
+      reference: string;
+      email: string;
+      amountCents: number;
+      currency: string;
+      publicKey?: string;
+    };
+
+export type FundResponseDTO = BookingDTO & { clientAction?: ClientAction };
+
 export interface ReviewDTO {
   id: string;
   rating: number;
