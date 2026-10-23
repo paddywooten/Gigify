@@ -1,0 +1,28 @@
+# Firebase App Hosting configuration for Gigify.
+# Reference: https://firebase.google.com/docs/app-hosting/configure
+
+# Cloud Run service settings. Scale to zero when idle to keep demo costs ~$0.
+runConfig:
+  minInstances: 0
+  maxInstances: 3
+
+# Environment variables (available at build AND runtime unless narrowed below).
+env:
+  # SQLite on the instance's ephemeral disk: data resets on every deploy and
+  # scale-to-zero restart. For durable data, swap this value for a managed
+  # Postgres URL (Cloud SQL / Neon) and run `npx prisma db push` once against
+  # it — no code changes required.
+  - variable: DATABASE_URL
+    value: "file:/tmp/gigify.db"
+
+  # One-time bootstrapping at process start: push the Prisma schema and load
+  # the demo-data snapshot (prisma/seed.sql). See src/server/db.ts.
+  - variable: DB_BOOTSTRAP
+    value: "1"
+    availability:
+      - RUNTIME
+
+  # Payments run through the mock provider (no real charges). Set to "stripe"
+  # and configure Stripe keys as App Hosting secrets to take live payments.
+  - variable: PAYMENT_PROVIDER
+    value: "mock"

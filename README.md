@@ -218,6 +218,18 @@ Tests call the **real route handlers** with `NextRequest`s against a dedicated S
 4. **Email** — `notification-service.ts` is the single place to add transactional email alongside the in-app records.
 5. **Hardening** — add rate limiting on `/auth/*` and `/bookings/:id/fund`, background job to expire unpaid bookings, and legal pages (terms, payout/KYC for musicians above marketplace thresholds).
 
+### Hosting on Firebase App Hosting
+
+The app deploys to [Firebase App Hosting](https://firebase.google.com/docs/app-hosting) (SSR + API routes; requires the Blaze pay-as-you-go plan):
+
+```bash
+firebase apphosting:backends:create --non-interactive \
+  --backend gigify-web --primary-region us-central1 --runtime nodejs22 --root-dir .
+firebase deploy --only apphosting
+```
+
+Configuration lives in `apphosting.yaml`. On boot, `src/server/db.ts` runs the Prisma schema push and loads `prisma/seed.sql` (an idempotent demo-data snapshot) when `DB_BOOTSTRAP=1`, because the hosted SQLite file (`/tmp/gigify.db`) is **ephemeral** — it resets on every deploy and scale-to-zero restart. For durable data, set `DATABASE_URL` to a managed Postgres instance (Cloud SQL, Neon), point `DB_BOOTSTRAP`'s seed step at it (or disable it), and run `npx prisma db push` once.
+
 ## Roadmap
 
 - [ ] Stripe integration (real escrow, Connect payouts, webhooks)

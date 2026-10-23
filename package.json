@@ -24,6 +24,7 @@
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "next": "^14.2.35",
+    "prisma": "^5.22.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "zod": "^3.23.8"
@@ -37,7 +38,6 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",
     "postcss": "^8.4.47",
-    "prisma": "^5.22.0",
     "tailwindcss": "^3.4.13",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",
