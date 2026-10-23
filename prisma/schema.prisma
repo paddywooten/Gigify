@@ -1,0 +1,195 @@
+// Prisma schema for SoundBridge.
+// NOTE: the project runs on SQLite for zero-config local dev; enums are modelled
+// as strings with TS unions + zod validation (src/lib/constants.ts). Swap the
+// datasource provider to postgresql for production without touching app code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String // MUSICIAN | CLIENT | ADMIN
+  bio          String?
+  location     String?
+  avatarUrl    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  musicianProfile    MusicianProfile?
+  clientProfile      ClientProfile?
+  sessions           Session[]
+  gigs               Gig[]              @relation("GigOrganizer")
+  applications       Application[]
+  bookingsAsMusician Booking[]          @relation("BookingMusician")
+  bookingsAsClient   Booking[]          @relation("BookingClient")
+  notifications      Notification[]
+  reviewsWritten     Review[]           @relation("Reviewer")
+  reviewsReceived    Review[]           @relation("Reviewee")
+  payments           Payment[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MusicianProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline        String?
+  instruments     String  @default("[]") // JSON string[]
+  genres          String  @default("[]") // JSON string[]
+  dayRateCents    Int     @default(0)
+  travelRadiusKm  Int     @default(25)
+  experienceYears Int     @default(0)
+  sampleUrls      String  @default("[]") // JSON string[] (audio/portfolio links)
+  isAvailable     Boolean @default(true)
+}
+
+model ClientProfile {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationName String
+  organizationType String  @default("OTHER") // CHURCH | EVENT | VENUE | OTHER
+  website          String?
+}
+
+model Gig {
+  id             String        @id @default(cuid())
+  organizerId    String
+  organizer      User          @relation("GigOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  title          String
+  description    String
+  gigType        String // CHURCH_SERVICE | WEDDING | CONCERT | CORPORATE | FESTIVAL | OTHER
+  genres         String        @default("[]") // JSON string[]
+  eventDate      DateTime
+  durationHours  Float         @default(2)
+  location       String
+  venueName      String?
+  budgetCents    Int
+  requirements   String?
+  status         String        @default("OPEN") // OPEN | BOOKED | COMPLETED | CANCELLED
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  applications   Application[]
+  booking        Booking?
+
+  @@index([status, eventDate])
+}
+
+model Application {
+  id                String    @id @default(cuid())
+  gigId             String
+  gig               Gig       @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  musicianId        String
+  musician          User      @relation(fields: [musicianId], references: [id], onDelete: Cascade)
+  message           String
+  proposedRateCents Int
+  status            String    @default("PENDING") // PENDING | ACCEPTED | REJECTED | WITHDRAWN
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  booking           Booking?
+
+  @@unique([gigId, musicianId])
+  @@index([musicianId, status])
+}
+
+model Booking {
+  id                  String        @id @default(cuid())
+  gigId               String        @unique
+  gig                 Gig           @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  applicationId       String        @unique
+  application         Application   @relation(fields: [applicationId], references: [id])
+  clientId            String
+  client              User          @relation("BookingClient", fields: [clientId], references: [id])
+  musicianId          String
+  musician            User          @relation("BookingMusician", fields: [musicianId], references: [id])
+  totalCents          Int
+  platformFeeRate     Float // snapshot of the commission rate at booking time
+  platformFeeCents    Int
+  musicianPayoutCents Int
+  status              String        @default("PENDING_FUNDING") // PENDING_FUNDING | FUNDED | IN_PROGRESS | COMPLETED | CANCELLED | DISPUTED | REFUNDED
+  fundedAt            DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  disputeReason       String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  payments            Payment[]
+  reviews             Review[]
+
+  @@index([clientId, status])
+  @@index([musicianId, status])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payerId     String?
+  payer       User?    @relation(fields: [payerId], references: [id])
+  amountCents Int
+  type        String // CLIENT_FUNDING | MUSICIAN_PAYOUT | PLATFORM_FEE | REFUND
+  status      String   @default("PENDING") // PENDING | SUCCEEDED | FAILED
+  provider    String   @default("mock")
+  providerRef String
+  createdAt   DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reviewerId String
+  reviewer   User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  revieweeId String
+  reviewee   User     @relation("Reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+
+  @@unique([bookingId, reviewerId])
+  @@index([revieweeId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+// Key/value store for platform-wide configuration (e.g. commissionRate = "0.15").
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
