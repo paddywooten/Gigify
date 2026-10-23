@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Find musicians — Gigify</title>
+  <meta name="description" content="Browse vetted musicians for churches, venues and events — worship leaders, jazz trios, string duos and more, with rates, ratings and reviews up front.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f46e5'/%3E%3Ctext x='16' y='23' font-size='19' text-anchor='middle' fill='white' font-family='sans-serif'%3E%E2%99%AE%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">♪</span>Gigify</a>
+      <nav class="site-nav" id="site-nav" aria-label="Main">
+        <a href="gigs.html">Find gigs</a>
+        <a href="musicians.html" aria-current="page">Find musicians</a>
+        <a href="index.html#how">How it works</a>
+        <a href="index.html#pricing">Pricing</a>
+      </nav>
+      <div class="header-actions">
+        <span class="user-chip user-only hidden" data-user-name></span>
+        <button type="button" class="btn btn-ghost user-only hidden" data-signout>Sign out</button>
+        <span class="guest-only">
+          <a class="btn btn-ghost" href="login.html">Sign in</a>
+          <a class="btn btn-primary" href="register.html">Get started</a>
+        </span>
+        <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-head container">
+      <span class="eyebrow">Musician directory</span>
+      <h1>Find musicians who fit the moment</h1>
+      <p>Worship leaders, jazz trios, string duos and more — with day rates, instruments and
+         verified reviews up front. What you see is what you book.</p>
+    </section>
+
+    <section class="container">
+      <form class="filters" id="musician-filters" role="search">
+        <div class="field">
+          <label for="m-q">Search</label>
+          <input id="m-q" type="search" placeholder="Name, instrument, city…">
+        </div>
+        <div class="field">
+          <label for="m-instrument">Instrument</label>
+          <select id="m-instrument"><option value="">All instruments</option></select>
+        </div>
+        <div class="field">
+          <label for="m-genre">Genre</label>
+          <select id="m-genre"><option value="">All genres</option></select>
+        </div>
+        <div class="field">
+          <label for="m-rate">Max day rate</label>
+          <select id="m-rate">
+            <option value="">Any rate</option>
+            <option value="50000">Up to $500</option>
+            <option value="65000">Up to $650</option>
+            <option value="80000">Up to $800</option>
+            <option value="120000">Up to $1,200</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost" type="reset">Reset</button>
+      </form>
+
+      <p class="result-count" id="musicians-count">Loading musicians…</p>
+      <div class="card-grid" id="musicians-grid"></div>
+      <noscript>
+        <div class="empty">This page needs JavaScript to load the directory. The full Gigify
+          application in <code>src/</code> renders profiles server-side.</div>
+      </noscript>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-label="Musician profile">
+    <div class="modal">
+      <button class="modal-close" type="button" aria-label="Close">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-brand"><span class="brand-mark" aria-hidden="true">♪</span>Gigify</div>
+          <p>The marketplace where churches, venues and event teams book trusted musicians —
+             with escrow-protected payments and in-app contracts.</p>
+        </div>
+        <div>
+          <h4>Marketplace</h4>
+          <ul class="footer-links">
+            <li><a href="gigs.html">Find gigs</a></li>
+            <li><a href="musicians.html">Find musicians</a></li>
+            <li><a href="index.html#how">How it works</a></li>
+            <li><a href="index.html#pricing">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>For musicians</h4>
+          <ul class="footer-links">
+            <li><a href="register.html">Create a profile</a></li>
+            <li><a href="gigs.html">Browse open gigs</a></li>
+            <li><a href="index.html#faq">Escrow payouts</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>For organizers</h4>
+          <ul class="footer-links">
+            <li><a href="register.html">Post a gig</a></li>
+            <li><a href="login.html">Sign in</a></li>
+            <li><a href="index.html#faq">FAQ</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> Gigify. Platform commission: a transparent 15%.</span>
+        <span>Built with HTML, CSS &amp; JavaScript.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — Gigify</title>
+  <meta name="description" content="Sign in to your Gigify account.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f46e5'/%3E%3Ctext x='16' y='23' font-size='19' text-anchor='middle' fill='white' font-family='sans-serif'%3E%E2%99%AE%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">♪</span>Gigify</a>
+      <nav class="site-nav" id="site-nav" aria-label="Main">
+        <a href="gigs.html">Find gigs</a>
+        <a href="musicians.html">Find musicians</a>
+        <a href="index.html#how">How it works</a>
+        <a href="index.html#pricing">Pricing</a>
+      </nav>
+      <div class="header-actions">
+        <span class="user-chip user-only hidden" data-user-name></span>
+        <button type="button" class="btn btn-ghost user-only hidden" data-signout>Sign out</button>
+        <span class="guest-only">
+          <a class="btn btn-ghost" href="login.html" aria-current="page">Sign in</a>
+          <a class="btn btn-primary" href="register.html">Get started</a>
+        </span>
+        <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="auth-wrap container">
+      <div class="auth-card">
+        <span class="eyebrow">Welcome back</span>
+        <h1>Sign in to Gigify</h1>
+        <p class="sub">Demo sign-in — accounts on this static site live in your browser only.
+           The full application in <code>src/</code> has real email/password accounts.</p>
+
+        <div class="form-error" id="form-error" role="alert"></div>
+
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" placeholder="you@church.org" required>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+            <span class="hint">At least 6 characters</span>
+          </div>
+          <div class="field">
+            <label for="role">Signing in as</label>
+            <select id="role" name="role">
+              <option value="ORGANIZER">Organizer — church / venue / event</option>
+              <option value="MUSICIAN">Musician</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+        </form>
+
+        <p class="alt-line">New to Gigify? <a href="register.html">Create an account</a></p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-brand"><span class="brand-mark" aria-hidden="true">♪</span>Gigify</div>
+          <p>The marketplace where churches, venues and event teams book trusted musicians —
+             with escrow-protected payments and in-app contracts.</p>
+        </div>
+        <div>
+          <h4>Marketplace</h4>
+          <ul class="footer-links">
+            <li><a href="gigs.html">Find gigs</a></li>
+            <li><a href="musicians.html">Find musicians</a></li>
+            <li><a href="index.html#how">How it works</a></li>
+            <li><a href="index.html#pricing">Pricing</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>For musicians</h4>
+          <ul class="footer-links">
+            <li><a href="register.html">Create a profile</a></li>
+            <li><a href="gigs.html">Browse open gigs</a></li>
+            <li><a href="index.html#faq">Escrow payouts</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>For organizers</h4>
+          <ul class="footer-links">
+            <li><a href="register.html">Post a gig</a></li>
+            <li><a href="login.html">Sign in</a></li>
+            <li><a href="index.html#faq">FAQ</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> Gigify. Platform commission: a transparent 15%.</span>
+        <span>Built with HTML, CSS &amp; JavaScript.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
