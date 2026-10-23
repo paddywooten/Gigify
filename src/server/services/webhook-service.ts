@@ -4,6 +4,7 @@
 
 import { prisma } from "@/server/db";
 import { notify } from "./notification-service";
+import { tryEnsureContract } from "./contract-service";
 import { formatMoney } from "@/lib/format";
 
 export type SettleOutcome = "SETTLED" | "ALREADY_SETTLED" | "IGNORED";
@@ -69,5 +70,6 @@ export async function settleFundedBooking(input: {
     body: `Escrow funding for “${booking.gig.title}” confirmed (${formatMoney(booking.totalCents)}). You'll be paid ${formatMoney(booking.musicianPayoutCents)} after the gig is completed.`,
     link: `/bookings/${booking.id}`,
   });
+  await tryEnsureContract(booking.id);
   return "SETTLED";
 }

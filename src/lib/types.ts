@@ -108,6 +108,34 @@ export type ClientAction =
 
 export type FundResponseDTO = BookingDTO & { clientAction?: ClientAction };
 
+export interface ContractSignatureDTO {
+  role: string; // CLIENT | MUSICIAN
+  signatureName: string;
+  signedAt: string;
+}
+
+export interface ContractDTO {
+  id: string;
+  bookingId: string;
+  status: string; // AWAITING_SIGNATURES | SIGNED
+  title: string;
+  eventDate: string;
+  location: string;
+  venueName: string | null;
+  clientName: string;
+  musicianName: string;
+  totalCents: number;
+  feeCents: number;
+  feeRate: number;
+  payoutCents: number;
+  terms: string;
+  contentHash: string;
+  createdAt: string;
+  signatures: ContractSignatureDTO[];
+  canSign: boolean;
+  signedByMe: boolean;
+}
+
 export interface ReviewDTO {
   id: string;
   rating: number;

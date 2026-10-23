@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import Protected from "@/components/Protected";
 import { BOOKING_STATUS_LABELS } from "@/lib/constants";
 import { formatRate } from "@/lib/format";
-import type { BookingDTO } from "@/lib/types";
+import type { BookingDTO, ContractDTO } from "@/lib/types";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { LoadingBlock } from "@/components/Spinner";
 import {
@@ -114,8 +114,44 @@ function ReviewForm({ bookingId, onDone }: { bookingId: string; onDone: () => vo
   );
 }
 
-function BookingDetail({ booking, reload }: { booking: BookingDTO; reload: () => Promise<void> }) {
-  const { user } = useAuth();
+/** Entry point to the contract: shown once the escrow is funded. */
+function ContractBanner({ bookingId }: { bookingId: string }) {
+  const [contract, setContract] = useState<ContractDTO | null>(null);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    api<ContractDTO>(`/bookings/${bookingId}/contract`)
+      .then(setContract)
+      .catch(() => setMissing(true));
+  }, [bookingId]);
+
+  if (missing || !contract) return null;
+  const signed = contract.status === "SIGNED";
+  return (
+    <div className="card flex flex-wrap items-center justify-between gap-3 p-4 print:hidden">
+      <div className="flex items-center gap-3">
+        <span className="text-2xl">📜</span>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            Gig contract {signed ? "— fully signed ✓" : `— ${contract.signatures.length}/2 signatures`}
+          </p>
+          <p className="text-xs text-slate-500">
+            {signed
+              ? "Both parties have executed the agreement."
+              : contract.signedByMe
+                ? "You've signed — waiting for the other party."
+                : "Your signature is required."}
+          </p>
+        </div>
+      </div>
+      <Link href={`/bookings/${bookingId}/contract`} className="btn-primary">
+        {signed ? "View contract" : "Review & sign"}
+      </Link>
+    </div>
+  );
+}
+
+function BookingDetail({ booking, reload }: { booking: BookingDTO; reload: () => Promise<void> }) {  const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -194,6 +230,11 @@ function BookingDetail({ booking, reload }: { booking: BookingDTO; reload: () =>
           </p>
         )}
       </div>
+
+      {/* Contract entry point (exists once the escrow is funded) */}
+      {["FUNDED", "IN_PROGRESS", "COMPLETED", "DISPUTED"].includes(booking.status) && (
+        <ContractBanner bookingId={booking.id} />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Money */}

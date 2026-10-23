@@ -105,6 +105,14 @@ FUNDED / IN_PROGRESS → DISPUTED → admin resolves → COMPLETED (paid) or REF
 - Two-step funding for real providers: `POST /bookings/:id/fund` returns a `clientAction` (card entry happens client-side), a second call with `providerRef` confirms the charge with the provider
 - Webhook endpoints (`/api/v1/webhooks/stripe|paystack`) settle bookings idempotently with signature + amount verification
 
+**Contracts & e-signatures**
+- A gig performance agreement is **generated automatically the moment escrow is funded** — from any of the three funding paths (initial charge, provider confirm, webhook settle)
+- Terms are an **immutable snapshot** of the deal (gig, date, venue, fee split) — later gig/profile edits or commission changes never rewrite an existing agreement
+- **SHA-256 content hash** recorded on the contract as tamper evidence
+- Both parties sign in-app by typing their name; each signature captures role, timestamp, IP and user agent as an audit trail
+- Only fully signed (client + musician) → `SIGNED`; admins can view but never sign
+- Print-friendly contract page (hides nav/chrome, includes a Print/Save-PDF button)
+
 **Trust & moderation**
 - Mutual post-gig reviews (one per party per booking, only after completion)
 - In-app notifications for every meaningful event (applications, funding, completion, disputes…) — each one also sends a branded **transactional email** (JSONL outbox locally, Resend when `EMAIL_PROVIDER=resend`)
@@ -196,6 +204,8 @@ Base path: `/api/v1`. All mutating endpoints require a session cookie unless not
 | `POST /bookings/:id/fund` | client | Fund escrow. Body optional: `{ providerRef }` confirms a pending real-provider charge (stripe/paystack) |
 | `POST /bookings/:id/action` | party | `START` / `COMPLETE` / `CANCEL` / `DISPUTE` |
 | `POST /bookings/:id/reviews` | party | Review after completion |
+| `GET /bookings/:id/contract` | party/admin | Gig contract (auto-generated on funding; returns terms, hash, signatures) |
+| `POST /bookings/:id/contract/sign` | party | Sign the contract. Body: `{ signatureName }` (audit trail: IP, user agent) |
 | `POST /webhooks/stripe` · `POST /webhooks/paystack` | signature | Payment provider webhooks (HMAC-verified, idempotent escrow settlement) |
 | `GET /musicians` · `GET /musicians/:id` | public | Directory & profiles |
 | `PATCH /profile` · `GET /profile` | session | Own profile |
@@ -215,6 +225,7 @@ npm test
 - `tests/api-flow.test.ts` — full integration: gig → application → booking → escrow → completion → payouts → reviews, plus commission-rate snapshots, cancellation, disputes and admin revenue stats
 - `tests/payments.test.ts` — Stripe/Paystack provider behavior with fully mocked HTTP, webhook signature verification + idempotent settlement, and the two-step funding contract
 - `tests/email.test.ts` — template escaping, notification → outbox dispatch, Resend payload shape, failure isolation
+- `tests/contracts.test.ts` — contract generation at funding (snapshot, hash, idempotency), the two-party signing flow with audit trail, and permission/validation guards
 
 Tests call the **real route handlers** with `NextRequest`s against a dedicated SQLite test database (`prisma/test.db`, reset per run) — no network, no mocks of our own code. The payment provider is the `mock` implementation unless a test injects one.
 
@@ -244,7 +255,7 @@ Configuration lives in `apphosting.yaml`. On boot, `src/server/db.ts` runs the P
 - [x] Paystack escrow (test mode): initialize/verify, transfers, refunds, signed webhooks
 - [ ] Card-entry UI (Stripe Elements / Paystack Inline) — activates when test keys are added
 - [ ] Payout onboarding: Stripe Connect account links / Paystack recipient collection in the app
-- [ ] Contracts: generated gig agreement both parties sign in-app
+- [x] Contracts: auto-generated on funding, immutable snapshot + SHA-256 hash, in-app e-signatures with audit trail
 - [ ] Availability calendars + instant booking for pre-agreed rates
 - [ ] Saved/favorite musicians & recurring gigs for churches
 - [x] Transactional email for every event (console outbox in dev; Resend-ready)

@@ -8,6 +8,7 @@ import { badRequest, conflict, forbidden, notFound } from "@/server/errors";
 import type { SessionUser } from "@/server/auth/session";
 import { computeCommission } from "@/server/domain/commission";
 import { getPaymentProvider, platformCurrency, type ClientAction } from "@/server/payments/provider";
+import { tryEnsureContract } from "./contract-service";
 import { toBookingDTO } from "./serializers";
 import { paginated } from "./helpers";
 import { notify, notifyAdmins } from "./notification-service";
@@ -165,7 +166,10 @@ export async function fundBooking(
       where: { id: booking.id, status: "PENDING_FUNDING" },
       data: { status: "FUNDED", fundedAt: new Date() },
     });
-    if (claimed.count > 0) await notifyFunded(booking);
+    if (claimed.count > 0) {
+      await notifyFunded(booking);
+      await tryEnsureContract(booking.id);
+    }
     return getBooking(id, user);
   }
 
@@ -208,6 +212,7 @@ export async function fundBooking(
   }
 
   await notifyFunded(booking);
+  await tryEnsureContract(booking.id);
   return getBooking(id, user);
 }
 

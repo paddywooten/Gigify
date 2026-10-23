@@ -36,7 +36,7 @@ export default function Nav() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur print:hidden">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold text-slate-900">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">♪</span>

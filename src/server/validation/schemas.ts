@@ -91,6 +91,10 @@ export const reviewSchema = z.object({
   comment: z.string().min(3).max(2000),
 });
 
+export const signContractSchema = z.object({
+  signatureName: z.string().trim().min(2, "Type your full name to sign.").max(120),
+});
+
 export const profileUpdateSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   bio: z.string().max(2000).optional().or(z.literal("")),

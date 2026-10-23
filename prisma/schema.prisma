@@ -41,6 +41,50 @@ model User {
   reviewsWritten     Review[]           @relation("Reviewer")
   reviewsReceived    Review[]           @relation("Reviewee")
   payments           Payment[]
+  contractSignatures ContractSignature[]
+}
+
+model Contract {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  status      String   @default("AWAITING_SIGNATURES") // AWAITING_SIGNATURES | SIGNED
+
+  // Immutable snapshot of the deal at funding time — later edits to the gig
+  // or profile can never rewrite an existing agreement.
+  title        String
+  eventDate    DateTime
+  location     String
+  venueName    String?
+  clientName   String
+  musicianName String
+  totalCents   Int
+  feeCents     Int
+  feeRate      Float
+  payoutCents  Int
+  terms        String // canonical agreement text
+  contentHash  String // sha256(terms) — tamper evidence
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  signatures ContractSignature[]
+
+  @@index([bookingId])
+}
+
+model ContractSignature {
+  id            String   @id @default(cuid())
+  contractId    String
+  contract      Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          String // CLIENT | MUSICIAN
+  signatureName String // the typed legal name, exactly as signed
+  ipAddress     String?
+  userAgent     String?
+  signedAt      DateTime @default(now())
+
+  @@unique([contractId, userId])
 }
 
 model Session {
@@ -141,6 +185,7 @@ model Booking {
   updatedAt           DateTime      @updatedAt
   payments            Payment[]
   reviews             Review[]
+  contract            Contract?
 
   @@index([clientId, status])
   @@index([musicianId, status])
