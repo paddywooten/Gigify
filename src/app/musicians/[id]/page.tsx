@@ -4,19 +4,72 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "@/lib/api-client";
-import type { PublicMusicianDTO, ReviewDTO } from "@/lib/types";
+import type { MediaAssetDTO, PublicMusicianDTO, ReviewDTO } from "@/lib/types";
 import { formatDate, formatMoney } from "@/lib/format";
 import StarRating from "@/components/StarRating";
 import { LoadingBlock } from "@/components/Spinner";
 import { ErrorBanner, PageHeader, Tag } from "@/components/ui";
 
+function MediaGallery({ media }: { media: MediaAssetDTO[] }) {
+  const audio = media.filter((m) => m.kind === "AUDIO");
+  const images = media.filter((m) => m.kind === "IMAGE");
+  if (media.length === 0) return null;
+
+  return (
+    <section className="card p-6">
+      <h2 className="font-semibold text-slate-900">Samples &amp; portfolio</h2>
+
+      {audio.length > 0 && (
+        <ul className="mt-3 space-y-3">
+          {audio.map((clip) => (
+            <li key={clip.id} className="rounded-xl border border-slate-200 p-3">
+              {clip.title && <p className="mb-2 text-sm font-medium text-slate-800">{clip.title}</p>}
+              <audio controls preload="none" src={clip.url} className="w-full">
+                <a href={clip.url} className="text-sm text-brand-600 hover:underline">
+                  Download sample
+                </a>
+              </audio>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {images.length > 0 && (
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {images.map((img) => (
+            <a
+              key={img.id}
+              href={img.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block overflow-hidden rounded-xl border border-slate-200"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.url}
+                alt={img.title ?? "Portfolio photo"}
+                loading="lazy"
+                className="aspect-square w-full object-cover transition hover:scale-105"
+              />
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function MusicianDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [data, setData] = useState<{ musician: PublicMusicianDTO; reviews: ReviewDTO[] } | null>(null);
+  const [data, setData] = useState<{
+    musician: PublicMusicianDTO;
+    reviews: ReviewDTO[];
+    media: MediaAssetDTO[];
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ musician: PublicMusicianDTO; reviews: ReviewDTO[] }>(`/musicians/${id}`)
+    api<{ musician: PublicMusicianDTO; reviews: ReviewDTO[]; media: MediaAssetDTO[] }>(`/musicians/${id}`)
       .then(setData)
       .catch((err) => setError(errorMessage(err)));
   }, [id]);
@@ -24,7 +77,7 @@ export default function MusicianDetailPage() {
   if (error) return <ErrorBanner message={error} />;
   if (!data) return <LoadingBlock label="Loading profile…" />;
 
-  const { musician, reviews } = data;
+  const { musician, reviews, media } = data;
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -77,6 +130,8 @@ export default function MusicianDetailPage() {
             </div>
           )}
         </div>
+
+        <MediaGallery media={media} />
 
         <section className="card p-6">
           <h2 className="font-semibold text-slate-900">Reviews ({reviews.length})</h2>

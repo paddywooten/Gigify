@@ -42,6 +42,21 @@ model User {
   reviewsReceived    Review[]           @relation("Reviewee")
   payments           Payment[]
   contractSignatures ContractSignature[]
+  media              MediaAsset[]
+}
+
+model MediaAsset {
+  id         String   @id
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  kind       String // AUDIO | IMAGE
+  title      String?
+  mimeType   String
+  sizeBytes  Int
+  storageKey String // path within the media storage (never exposed to clients)
+  createdAt  DateTime @default(now())
+
+  @@index([ownerId, kind])
 }
 
 model Contract {

@@ -4,8 +4,9 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { notFound } from "@/server/errors";
 import { toPublicMusicianDTO, toReviewDTO } from "./serializers";
+import { listProfileMedia } from "./media-service";
 import { paginated } from "./helpers";
-import type { Paginated, PublicMusicianDTO, ReviewDTO } from "@/lib/types";
+import type { MediaAssetDTO, Paginated, PublicMusicianDTO, ReviewDTO } from "@/lib/types";
 
 export type MusicianListParams = {
   search?: string;
@@ -70,6 +71,7 @@ export async function listMusicians(params: MusicianListParams): Promise<Paginat
 export async function getMusicianProfile(userId: string): Promise<{
   musician: PublicMusicianDTO;
   reviews: ReviewDTO[];
+  media: MediaAssetDTO[];
 }> {
   const profile = await prisma.musicianProfile.findUnique({
     where: { userId },
@@ -85,11 +87,13 @@ export async function getMusicianProfile(userId: string): Promise<{
   if (!profile || !profile.user.isActive) throw notFound("Musician not found.");
 
   const reviews = profile.user.reviewsReceived;
+  const media: MediaAssetDTO[] = await listProfileMedia(userId);
   return {
     musician: {
       ...toPublicMusicianDTO(profile, reviews),
       completedBookings: profile.user._count.bookingsAsMusician,
     },
     reviews: reviews.map(toReviewDTO),
+    media,
   };
 }

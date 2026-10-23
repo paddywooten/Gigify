@@ -114,6 +114,16 @@ export interface ContractSignatureDTO {
   signedAt: string;
 }
 
+export interface MediaAssetDTO {
+  id: string;
+  kind: "AUDIO" | "IMAGE";
+  title: string | null;
+  mimeType: string;
+  sizeBytes: number;
+  url: string;
+  createdAt: string;
+}
+
 export interface ContractDTO {
   id: string;
   bookingId: string;

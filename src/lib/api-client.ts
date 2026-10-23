@@ -19,10 +19,13 @@ type ApiOptions = {
 };
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  // FormData bodies must be passed through untouched so the browser sets the
+  // multipart boundary; everything else is JSON-encoded.
+  const isForm = typeof FormData !== "undefined" && options.body instanceof FormData;
   const res = await fetch(`/api/v1${path}`, {
     method: options.method ?? "GET",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    headers: options.body && !isForm ? { "Content-Type": "application/json" } : undefined,
+    body: options.body ? (isForm ? (options.body as FormData) : JSON.stringify(options.body)) : undefined,
     credentials: "same-origin",
   });
 

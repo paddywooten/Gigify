@@ -2,6 +2,7 @@
 
 import { NextRequest } from "next/server";
 import type { Role } from "@/lib/constants";
+import type { SessionUser } from "@/server/auth/session";
 
 export const BASE = "http://localhost:3000/api/v1";
 
@@ -36,6 +37,22 @@ export type TestUser = {
   role: Role;
   cookie: string;
 };
+
+/**
+ * Widens a TestUser to the SessionUser shape the service layer expects.
+ * Only the fields services actually read are meaningful here.
+ */
+export function toSessionUser(user: TestUser): SessionUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    bio: null,
+    location: null,
+    createdAt: new Date(),
+  };
+}
 
 let userCounter = 0;
 

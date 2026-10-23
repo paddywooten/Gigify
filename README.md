@@ -75,7 +75,12 @@ All seeded accounts use the password `password123`:
 - Public gig feed with search + filters (type, genre, budget, date, "my gigs")
 - Public musician directory with filters (instrument, genre, availability, search)
 - Gig detail pages with application management for organizers
+
+**Musician profiles**
 - Public musician profiles with ratings, review history, day rate and samples
+- Rates & instruments front-and-center: day rate, travel radius, instruments/genres as tags
+- Portfolio media uploads: audio samples (mp3/m4a/wav/ogg/aac, ≤15 MB) and photos (jpg/png/webp, ≤5 MB) with inline audio player and photo gallery
+- Media served from a swappable storage abstraction (`MediaStorage`; local disk now, cloud-ready) by opaque id, never by storage path
 
 **Accounts & roles**
 - Three roles: `MUSICIAN`, `CLIENT` (church/venue/event), `ADMIN`
@@ -209,6 +214,9 @@ Base path: `/api/v1`. All mutating endpoints require a session cookie unless not
 | `POST /webhooks/stripe` · `POST /webhooks/paystack` | signature | Payment provider webhooks (HMAC-verified, idempotent escrow settlement) |
 | `GET /musicians` · `GET /musicians/:id` | public | Directory & profiles |
 | `PATCH /profile` · `GET /profile` | session | Own profile |
+| `GET /profile/media` · `POST /profile/media` | musician | List & upload portfolio media (multipart: `file`, optional `title`) |
+| `DELETE /profile/media/:id` | musician | Remove own portfolio media |
+| `GET /media/:id` | public | Serve portfolio media (audio/photo) by opaque id |
 | `GET /notifications` · `PATCH /notifications` | session | In-app notifications |
 | `GET /admin/stats` · `GET/PATCH /admin/settings` | admin | Platform metrics & commission |
 | `GET /admin/users` · `PATCH /admin/users/:id` | admin | Moderation (suspend/activate, roles) |
@@ -232,10 +240,11 @@ Tests call the **real route handlers** with `NextRequest`s against a dedicated S
 ## Going to production
 
 1. **Database** — set `DATABASE_URL` to PostgreSQL and run `npx prisma db push` (or migrations). No application code changes required.
-2. **Payments** — `StripePaymentProvider` and `PaystackPaymentProvider` are implemented (test mode). To go live: add the secret keys + webhook secrets, complete Stripe Connect / Paystack recipient onboarding per musician (fields exist on `User`), and switch `PAYMENT_PROVIDER`.
-3. **Sessions** — set `NODE_ENV=production` so cookies are `Secure`.
-4. **Email** — implemented: set `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` (pluggable `EmailSender` in `src/server/email/sender.ts`; swap in SMTP/Postmark by adding another sender).
-5. **Hardening** — add rate limiting on `/auth/*` and `/bookings/:id/fund`, background job to expire unpaid bookings, and legal pages (terms, payout/KYC for musicians above marketplace thresholds).
+2. **Media storage** — the default local `MediaStorage` writes to `UPLOAD_DIR`, which is ephemeral on App Hosting the same way the SQLite file is. For durable portfolio media, implement cloud storage (Firebase Storage / S3) behind the `MediaStorage` interface (`src/server/media/storage.ts`) and select it with `MEDIA_STORAGE`.
+3. **Payments** — `StripePaymentProvider` and `PaystackPaymentProvider` are implemented (test mode). To go live: add the secret keys + webhook secrets, complete Stripe Connect / Paystack recipient onboarding per musician (fields exist on `User`), and switch `PAYMENT_PROVIDER`.
+4. **Sessions** — set `NODE_ENV=production` so cookies are `Secure`.
+5. **Email** — implemented: set `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` (pluggable `EmailSender` in `src/server/email/sender.ts`; swap in SMTP/Postmark by adding another sender).
+6. **Hardening** — add rate limiting on `/auth/*` and `/bookings/:id/fund`, background job to expire unpaid bookings, and legal pages (terms, payout/KYC for musicians above marketplace thresholds).
 
 ### Hosting on Firebase App Hosting
 
@@ -256,6 +265,8 @@ Configuration lives in `apphosting.yaml`. On boot, `src/server/db.ts` runs the P
 - [ ] Card-entry UI (Stripe Elements / Paystack Inline) — activates when test keys are added
 - [ ] Payout onboarding: Stripe Connect account links / Paystack recipient collection in the app
 - [x] Contracts: auto-generated on funding, immutable snapshot + SHA-256 hash, in-app e-signatures with audit trail
+- [x] Musician profile upgrade: portfolio media (audio + photos) with player/gallery, public profiles with rates & instruments
+- [ ] Cloud media storage (Firebase Storage / S3) behind the existing `MediaStorage` abstraction
 - [ ] Availability calendars + instant booking for pre-agreed rates
 - [ ] Saved/favorite musicians & recurring gigs for churches
 - [x] Transactional email for every event (console outbox in dev; Resend-ready)

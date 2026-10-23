@@ -5,7 +5,165 @@ import { api, errorMessage } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import Protected from "@/components/Protected";
 import { GENRES, INSTRUMENTS, ORG_TYPES } from "@/lib/constants";
+import type { MediaAssetDTO } from "@/lib/types";
 import { ErrorBanner, Field, PageHeader, Select, SuccessBanner, TextArea, TextInput } from "@/components/ui";
+
+// Caps enforced server-side in media-service.ts — mirrored here for UX.
+const AUDIO_MAX_BYTES = 15 * 1024 * 1024;
+const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+function formatBytes(n: number): string {
+  if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
+}
+
+/** Upload + manage a musician's audio samples and photos. */
+function PortfolioManager() {
+  const [items, setItems] = useState<MediaAssetDTO[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  async function load() {
+    try {
+      const res = await api<{ items: MediaAssetDTO[] }>("/profile/media");
+      setItems(res.items);
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoaded(true);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file) return;
+    const kind = file.type.startsWith("audio/") ? "audio" : file.type.startsWith("image/") ? "image" : null;
+    const max = kind === "audio" ? AUDIO_MAX_BYTES : kind === "image" ? IMAGE_MAX_BYTES : 0;
+    if (!kind) {
+      setError("Upload an audio file (mp3, m4a, wav, ogg, aac) or an image (jpg, png, webp).");
+      return;
+    }
+    if (file.size > max) {
+      setError(`File too large (${formatBytes(file.size)}). ${kind === "audio" ? "Audio" : "Image"} uploads are capped at ${formatBytes(max)}.`);
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      if (title.trim()) body.append("title", title.trim());
+      const created = await api<MediaAssetDTO>("/profile/media", {
+        method: "POST",
+        body: body as unknown as Record<string, unknown>,
+      });
+      setItems((prev) => [created, ...prev]);
+      setFile(null);
+      setTitle("");
+      setNotice("Uploaded — it's live on your public profile.");
+      const input = document.getElementById("portfolio-file") as HTMLInputElement | null;
+      if (input) input.value = "";
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onDelete(id: string) {
+    setError(null);
+    setNotice(null);
+    try {
+      await api(`/profile/media/${id}`, { method: "DELETE" });
+      setItems((prev) => prev.filter((m) => m.id !== id));
+      setNotice("File removed from your portfolio.");
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
+  return (
+    <section className="card p-6">
+      <h2 className="text-lg font-semibold text-slate-900">Portfolio media</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Audio samples and photos on your public profile. Audio up to 15 MB (mp3, m4a, wav, ogg,
+        aac); photos up to 5 MB (jpg, png, webp).
+      </p>
+
+      <ErrorBanner message={error} />
+      <SuccessBanner message={notice} />
+
+      <form onSubmit={onUpload} className="mt-4 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="File">
+            <input
+              id="portfolio-file"
+              type="file"
+              accept="audio/*,image/*"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
+            />
+          </Field>
+          <Field label="Title (optional)" hint="e.g. “Sunday morning worship set” or “Live at Grace Community”">
+            <TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Give this clip a name" />
+          </Field>
+        </div>
+        <button type="submit" disabled={busy || !file} className="btn-primary">
+          {busy ? "Uploading…" : "Upload to portfolio"}
+        </button>
+      </form>
+
+      <div className="mt-6">
+        {!loaded ? (
+          <p className="text-sm text-slate-500">Loading portfolio…</p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            No media yet — organizers book musicians they can hear and see. Add a sample above.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {items.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-slate-800">
+                    {m.title ?? `${m.kind === "AUDIO" ? "Audio" : "Photo"} file`}
+                    <span className="ml-2 text-xs font-normal text-slate-400">
+                      {m.kind === "AUDIO" ? "♪" : "🖼"} {m.mimeType} · {formatBytes(m.sizeBytes)}
+                    </span>
+                  </p>
+                  {m.kind === "AUDIO" && (
+                    <audio controls preload="none" src={m.url} className="mt-2 w-full max-w-md">
+                      <a href={m.url}>Download</a>
+                    </audio>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onDelete(m.id)}
+                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50"
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
 
 function ChipPicker({
   options,
@@ -235,10 +393,14 @@ function ProfileForm() {
 }
 
 export default function ProfilePage() {
+  const { user } = useAuth();
   return (
     <Protected>
       <PageHeader title="Profile settings" subtitle="How organizers and musicians see you on Gigify." />
-      <ProfileForm />
+      <div className="space-y-6">
+        <ProfileForm />
+        {user?.role === "MUSICIAN" && <PortfolioManager />}
+      </div>
     </Protected>
   );
 }

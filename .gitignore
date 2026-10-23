@@ -34,5 +34,8 @@ next-env.d.ts
 # local email outbox (dev transactional email lands here)
 /logs/
 
+# local media uploads (musician portfolio files)
+/uploads/
+
 # vitest
 /coverage
