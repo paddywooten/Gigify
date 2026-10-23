@@ -107,7 +107,7 @@ FUNDED / IN_PROGRESS → DISPUTED → admin resolves → COMPLETED (paid) or REF
 
 **Trust & moderation**
 - Mutual post-gig reviews (one per party per booking, only after completion)
-- In-app notifications for every meaningful event (applications, funding, completion, disputes…)
+- In-app notifications for every meaningful event (applications, funding, completion, disputes…) — each one also sends a branded **transactional email** (JSONL outbox locally, Resend when `EMAIL_PROVIDER=resend`)
 - Admin console: revenue stats, booking breakdown, dispute resolution, user suspension/role changes (suspending kills live sessions)
 
 ---
@@ -214,6 +214,7 @@ npm test
 - `tests/api-auth.test.ts` — registration/login/logout, role guards, validation
 - `tests/api-flow.test.ts` — full integration: gig → application → booking → escrow → completion → payouts → reviews, plus commission-rate snapshots, cancellation, disputes and admin revenue stats
 - `tests/payments.test.ts` — Stripe/Paystack provider behavior with fully mocked HTTP, webhook signature verification + idempotent settlement, and the two-step funding contract
+- `tests/email.test.ts` — template escaping, notification → outbox dispatch, Resend payload shape, failure isolation
 
 Tests call the **real route handlers** with `NextRequest`s against a dedicated SQLite test database (`prisma/test.db`, reset per run) — no network, no mocks of our own code. The payment provider is the `mock` implementation unless a test injects one.
 
@@ -222,7 +223,7 @@ Tests call the **real route handlers** with `NextRequest`s against a dedicated S
 1. **Database** — set `DATABASE_URL` to PostgreSQL and run `npx prisma db push` (or migrations). No application code changes required.
 2. **Payments** — `StripePaymentProvider` and `PaystackPaymentProvider` are implemented (test mode). To go live: add the secret keys + webhook secrets, complete Stripe Connect / Paystack recipient onboarding per musician (fields exist on `User`), and switch `PAYMENT_PROVIDER`.
 3. **Sessions** — set `NODE_ENV=production` so cookies are `Secure`.
-4. **Email** — `notification-service.ts` is the single place to add transactional email alongside the in-app records.
+4. **Email** — implemented: set `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` (pluggable `EmailSender` in `src/server/email/sender.ts`; swap in SMTP/Postmark by adding another sender).
 5. **Hardening** — add rate limiting on `/auth/*` and `/bookings/:id/fund`, background job to expire unpaid bookings, and legal pages (terms, payout/KYC for musicians above marketplace thresholds).
 
 ### Hosting on Firebase App Hosting
@@ -246,7 +247,8 @@ Configuration lives in `apphosting.yaml`. On boot, `src/server/db.ts` runs the P
 - [ ] Contracts: generated gig agreement both parties sign in-app
 - [ ] Availability calendars + instant booking for pre-agreed rates
 - [ ] Saved/favorite musicians & recurring gigs for churches
-- [ ] Email notifications + weekly digest for musicians
+- [x] Transactional email for every event (console outbox in dev; Resend-ready)
+- [ ] Weekly digest emails for musicians
 - [ ] Payout accounts & tax forms (1099 generation) for musicians
 - [ ] Multi-currency support
 - [ ] Dispute evidence upload (photos, messages, set lists)

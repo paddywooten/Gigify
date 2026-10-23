@@ -31,5 +31,8 @@ next-env.d.ts
 /prisma/dev.db*
 /prisma/test.db*
 
+# local email outbox (dev transactional email lands here)
+/logs/
+
 # vitest
 /coverage
